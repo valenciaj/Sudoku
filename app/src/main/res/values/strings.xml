@@ -97,4 +97,17 @@
     <string name="ach_streak_7_desc">7-day daily streak</string>
     <string name="ach_streak_30_title">Unstoppable</string>
     <string name="ach_streak_30_desc">30-day daily streak</string>
+    <string name="mode">Mode</string>
+    <string name="mode_classic">Classic</string>
+    <string name="mode_time_attack">Time attack</string>
+    <string name="mode_killer">Killer</string>
+    <string name="mode_time_attack_info">Beat the clock. Each mistake costs %1$d s.</string>
+    <string name="mode_killer_info">Few clues: the small numbers are the sum of each dashed cage, with no repeats inside.</string>
+    <string name="time_up_title">Time\'s up!</string>
+    <string name="time_up_text">You ran out of time on this %1$s sudoku.</string>
+    <string name="retry">Try again</string>
+    <string name="ach_time_attack_title">Against the clock</string>
+    <string name="ach_time_attack_desc">Win a time attack game</string>
+    <string name="ach_killer_title">Killer</string>
+    <string name="ach_killer_desc">Solve a Killer sudoku</string>
 </resources>

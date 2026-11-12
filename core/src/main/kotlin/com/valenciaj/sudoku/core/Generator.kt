@@ -2,10 +2,18 @@ package com.valenciaj.sudoku.core
 
 import kotlin.random.Random
 
+/** Jaula del modo Killer: sus casillas suman [sum] y no repiten número. */
+class Cage(val cells: IntArray, val sum: Int) {
+    override fun equals(other: Any?) = other is Cage && sum == other.sum && cells.contentEquals(other.cells)
+    override fun hashCode() = 31 * sum + cells.contentHashCode()
+}
+
 class Puzzle(
     val givens: IntArray,
     val solution: IntArray,
     val difficulty: Difficulty,
+    /** Solo en el modo Killer. */
+    val cages: List<Cage> = emptyList(),
 ) {
     val clueCount get() = givens.count { it != 0 }
 }

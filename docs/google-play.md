@@ -56,7 +56,7 @@ Sudokus generados al momento, siempre con solución única, en cuatro niveles:
 • Difícil: técnicas como X-Wing.
 • Demencial: solo para valientes.
 
-Incluye sudoku diario con rachas, pistas que explican el siguiente paso, logros, notas a lápiz, deshacer, cronómetro, guardado automático, estadísticas y tema claro u oscuro con varios colores.
+Modos Clásico, Contrarreloj y Killer. Incluye sudoku diario con rachas, pistas que explican el siguiente paso, logros, notas a lápiz, deshacer, cronómetro, guardado automático, estadísticas y tema claro u oscuro con varios colores.
 Sin anuncios y sin recoger datos. Copia en la nube opcional en tu propia cuenta de GitHub.
 
 ## Política de privacidad

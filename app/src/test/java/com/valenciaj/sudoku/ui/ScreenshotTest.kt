@@ -7,6 +7,8 @@ import com.valenciaj.sudoku.core.Difficulty
 import com.valenciaj.sudoku.core.Game
 import com.valenciaj.sudoku.core.Generator
 import com.valenciaj.sudoku.core.Hints
+import com.valenciaj.sudoku.core.Killer
+import com.valenciaj.sudoku.core.Mode
 import com.valenciaj.sudoku.core.Stats
 import org.junit.Rule
 import org.junit.Test
@@ -52,7 +54,7 @@ class ScreenshotTest {
 
     @Test
     fun menu() = shot {
-        MenuScreen(game, stats, today, {}, {}, {}, {})
+        MenuScreen(game, stats, today, {}, {}, Mode.KILLER, {}, {}, {})
     }
 
     @Test
@@ -64,6 +66,20 @@ class ScreenshotTest {
     fun gameHintDark() = shot(dark = true, accent = Accent.GREEN) {
         val hint = Hints.next(game)
         GameScreen(game, UiState(game = game, selected = hint?.cell, hint = hint), Settings(), NoActions)
+    }
+
+    @Test
+    fun killer() = shot(accent = Accent.ORANGE) {
+        val p = Killer.generate(Difficulty.MEDIUM, Random(4))
+        var g = Game(p, mode = Mode.KILLER, timeLimitSeconds = null).tick(95)
+        p.givens.indices.filter { p.givens[it] == 0 }.take(8).forEach { g = g.input(it, p.solution[it]) }
+        GameScreen(g, UiState(game = g, selected = 40), Settings(), NoActions)
+    }
+
+    @Test
+    fun timeAttack() = shot(dark = true, accent = Accent.PINK) {
+        val g = Game(puzzle, mode = Mode.TIME_ATTACK, timeLimitSeconds = 900).tick(860)
+        GameScreen(g, UiState(game = g), Settings(), NoActions)
     }
 
     @Test

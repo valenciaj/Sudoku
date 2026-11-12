@@ -14,6 +14,9 @@ import com.valenciaj.sudoku.core.Difficulty
 import com.valenciaj.sudoku.core.Game
 import com.valenciaj.sudoku.core.Generator
 import com.valenciaj.sudoku.core.Hint
+import com.valenciaj.sudoku.core.Killer
+import com.valenciaj.sudoku.core.Mode
+import com.valenciaj.sudoku.core.TimeAttack
 import com.valenciaj.sudoku.core.Stats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,6 +62,8 @@ data class UiState(
     val newAchievements: List<Achievement> = emptyList(),
     /** Partida guardada sin terminar que se puede continuar desde el menú. */
     val saved: Game? = null,
+    /** Modo elegido en el menú para las partidas nuevas. */
+    val menuMode: Mode = Mode.CLASSIC,
 )
 
 /** Estado de la copia en la nube. */
@@ -119,7 +124,16 @@ class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, Clou
 
     // --- Empezar partidas ---
 
-    override fun newGame(difficulty: Difficulty) = start(dailyDay = null) { generator.generate(difficulty) }
+    override fun newGame(difficulty: Difficulty) = newGame(difficulty, _state.value.game?.mode ?: _state.value.menuMode)
+
+    fun newGame(difficulty: Difficulty, mode: Mode) {
+        val limit = if (mode == Mode.TIME_ATTACK) TimeAttack.limitSeconds(difficulty) else null
+        start(dailyDay = null, mode = mode, timeLimit = limit) {
+            if (mode == Mode.KILLER) Killer.generate(difficulty) else generator.generate(difficulty)
+        }
+    }
+
+    fun selectMenuMode(mode: Mode) = _state.update { it.copy(menuMode = mode) }
 
     fun playDaily() {
         val day = today
@@ -132,18 +146,24 @@ class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, Clou
         loadSaved()?.let(::open)
     }
 
-    private fun start(dailyDay: Long?, make: () -> com.valenciaj.sudoku.core.Puzzle) {
-        _state.update { UiState(loading = true, screen = Screen.GAME) }
+    private fun start(
+        dailyDay: Long?,
+        mode: Mode = Mode.CLASSIC,
+        timeLimit: Long? = null,
+        make: () -> com.valenciaj.sudoku.core.Puzzle,
+    ) {
+        val menuMode = _state.value.menuMode
+        _state.update { UiState(loading = true, screen = Screen.GAME, menuMode = menuMode) }
         viewModelScope.launch {
             val puzzle = withContext(Dispatchers.Default) { make() }
-            updateStats { it.recordStart(puzzle.difficulty) }
-            open(Game(puzzle, dailyDay = dailyDay))
+            updateStats { it.recordStart(puzzle.difficulty, mode) }
+            open(Game(puzzle, dailyDay = dailyDay, mode = mode, timeLimitSeconds = timeLimit))
             save()
         }
     }
 
     private fun open(game: Game) {
-        _state.update { UiState(screen = Screen.GAME, game = game) }
+        _state.update { UiState(screen = Screen.GAME, game = game, menuMode = it.menuMode) }
         startTimer()
     }
 
@@ -182,13 +202,15 @@ class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, Clou
     private fun play(change: (UiState, Game) -> Game) {
         val s = _state.value
         val game = s.game ?: return
-        if (s.paused || game.isSolved) return
+        if (s.paused || game.isOver) return
         val next = change(s, game)
         var unlocked = emptyList<Achievement>()
         if (next.isSolved) {
             val before = _stats.value
             updateStats {
-                val won = it.recordWin(next.puzzle.difficulty, next.elapsedSeconds, next.mistakes, next.hintsUsed)
+                val won = it.recordWin(
+                    next.puzzle.difficulty, next.elapsedSeconds, next.mistakes, next.hintsUsed, next.mode,
+                )
                 next.dailyDay?.let(won::recordDailyWin) ?: won
             }
             unlocked = Achievement.entries.filter { it.isUnlocked(_stats.value) && !it.isUnlocked(before) }
@@ -210,7 +232,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, Clou
         if (screen == Screen.MENU) {
             save()
             timer?.cancel()
-            _state.update { UiState(saved = loadSaved()) }
+            _state.update { UiState(saved = loadSaved(), menuMode = it.menuMode) }
         } else {
             _state.update { it.copy(screen = screen) }
         }
@@ -243,8 +265,14 @@ class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, Clou
         timer = viewModelScope.launch {
             while (isActive) {
                 delay(1000)
+                val before = _state.value.game
                 _state.update { s ->
                     if (s.paused || s.game == null || s.screen != Screen.GAME) s else s.copy(game = s.game.tick())
+                }
+                val after = _state.value.game
+                if (before != null && after != null && !before.isLost && after.isLost) {
+                    _feedback.tryEmit(Feedback.ERROR)
+                    save()
                 }
             }
         }
@@ -261,7 +289,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, Clou
     private fun save() {
         val game = _state.value.game ?: return
         prefs.edit {
-            if (game.isSolved) remove(KEY_SAVED) else putString(KEY_SAVED, game.encode())
+            if (game.isOver) remove(KEY_SAVED) else putString(KEY_SAVED, game.encode())
             putLong(KEY_SAVED_AT, System.currentTimeMillis())
         }
     }
