@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -10,15 +12,39 @@ android {
 
     defaultConfig {
         applicationId = "com.valenciaj.sudoku"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
+    }
+
+    // Firma de release: desde keystore.properties (local, no se sube a git)
+    // o desde variables de entorno (GitHub Actions). Sin ellas, el release sale sin firmar.
+    val keystoreProps = Properties().apply {
+        val f = rootProject.file("keystore.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    fun signingValue(prop: String, env: String): String? =
+        keystoreProps.getProperty(prop) ?: System.getenv(env)
+    val storeFilePath = signingValue("storeFile", "SUDOKU_KEYSTORE_FILE")
+
+    signingConfigs {
+        if (storeFilePath != null) {
+            create("release") {
+                storeFile = rootProject.file(storeFilePath)
+                storePassword = signingValue("storePassword", "SUDOKU_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "SUDOKU_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "SUDOKU_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     compileOptions {

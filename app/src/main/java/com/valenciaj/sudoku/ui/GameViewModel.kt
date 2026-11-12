@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.valenciaj.sudoku.core.Difficulty
 import com.valenciaj.sudoku.core.Game
 import com.valenciaj.sudoku.core.Generator
+import com.valenciaj.sudoku.core.Stats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -27,6 +28,7 @@ data class UiState(
     val paused: Boolean = false,
     /** Hay una partida guardada sin terminar que se puede continuar desde el menú. */
     val canContinue: Boolean = false,
+    val showStats: Boolean = false,
 )
 
 class GameViewModel(app: Application) : AndroidViewModel(app) {
@@ -34,6 +36,9 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     private val generator = Generator()
     private val _state = MutableStateFlow(UiState(canContinue = loadSaved() != null))
     val state: StateFlow<UiState> = _state.asStateFlow()
+
+    private val _stats = MutableStateFlow(Stats.decode(prefs.getString(KEY_STATS, null)))
+    val stats: StateFlow<Stats> = _stats.asStateFlow()
 
     private var timer: Job? = null
     private var inForeground = false
@@ -43,6 +48,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val puzzle = withContext(Dispatchers.Default) { generator.generate(difficulty) }
             _state.update { UiState(game = Game(puzzle)) }
+            updateStats { it.recordStart(difficulty) }
             save()
             startTimer()
         }
@@ -59,6 +65,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleNotesMode() = _state.update { it.copy(notesMode = !it.notesMode) }
 
     fun input(digit: Int) {
+        val wasSolved = _state.value.game?.isSolved ?: true
         _state.update { s ->
             val game = s.game ?: return@update s
             val cell = s.selected ?: return@update s
@@ -66,7 +73,18 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
             val next = if (s.notesMode && digit != 0) game.toggleNote(cell, digit) else game.input(cell, digit)
             s.copy(game = next)
         }
+        val game = _state.value.game
+        if (!wasSolved && game != null && game.isSolved) {
+            updateStats { it.recordWin(game.puzzle.difficulty, game.elapsedSeconds, game.mistakes) }
+        }
         save()
+    }
+
+    fun showStats(show: Boolean) = _state.update { it.copy(showStats = show) }
+
+    private fun updateStats(f: (Stats) -> Stats) {
+        _stats.update(f)
+        prefs.edit { putString(KEY_STATS, _stats.value.encode()) }
     }
 
     fun undo() {
@@ -119,5 +137,6 @@ class GameViewModel(app: Application) : AndroidViewModel(app) {
 
     private companion object {
         const val KEY_SAVED = "saved_game"
+        const val KEY_STATS = "stats"
     }
 }
