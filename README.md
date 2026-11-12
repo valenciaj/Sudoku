@@ -32,4 +32,4 @@ Cada push compila el APK en GitHub Actions y lo deja como artefacto descargable.
 1. ✅ Base: tablero 9x9, teclado, menú de niveles.
 2. ✅ Motor: generador con solución única y 4 niveles.
 3. ✅ Juego: notas a lápiz, deshacer, cronómetro con pausa, guardar y continuar partida.
-4. Extras: estadísticas, publicación en Google Play.
+4. ✅ Estadísticas por nivel y preparación para Google Play (ver [docs/google-play.md](docs/google-play.md)).

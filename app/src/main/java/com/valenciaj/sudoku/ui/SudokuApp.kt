@@ -57,10 +57,16 @@ fun SudokuApp(vm: GameViewModel = viewModel()) {
             val game = state.game
             when {
                 state.loading -> CircularProgressIndicator()
+                state.showStats -> {
+                    BackHandler { vm.showStats(false) }
+                    val stats by vm.stats.collectAsState()
+                    StatsScreen(stats, onBack = { vm.showStats(false) })
+                }
                 game == null -> MenuScreen(
                     canContinue = state.canContinue,
                     onContinue = vm::continueGame,
                     onSelect = vm::newGame,
+                    onStats = { vm.showStats(true) },
                 )
                 else -> {
                     BackHandler(onBack = vm::backToMenu)
@@ -72,7 +78,12 @@ fun SudokuApp(vm: GameViewModel = viewModel()) {
 }
 
 @Composable
-private fun MenuScreen(canContinue: Boolean, onContinue: () -> Unit, onSelect: (Difficulty) -> Unit) {
+private fun MenuScreen(
+    canContinue: Boolean,
+    onContinue: () -> Unit,
+    onSelect: (Difficulty) -> Unit,
+    onStats: () -> Unit,
+) {
     Column(
         Modifier.widthIn(max = 360.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -92,6 +103,8 @@ private fun MenuScreen(canContinue: Boolean, onContinue: () -> Unit, onSelect: (
                 Text(level.label, fontSize = 18.sp)
             }
         }
+        Spacer(Modifier.height(8.dp))
+        TextButton(onClick = onStats) { Text("Estadísticas") }
     }
 }
 
@@ -155,7 +168,7 @@ private fun GameScreen(game: Game, state: UiState, vm: GameViewModel) {
     }
 }
 
-private fun formatTime(seconds: Long): String {
+internal fun formatTime(seconds: Long): String {
     val h = seconds / 3600
     val m = (seconds % 3600) / 60
     val s = seconds % 60
