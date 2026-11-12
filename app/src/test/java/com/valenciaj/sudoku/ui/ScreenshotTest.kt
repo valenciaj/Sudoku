@@ -10,6 +10,8 @@ import com.valenciaj.sudoku.core.Hints
 import com.valenciaj.sudoku.core.Killer
 import com.valenciaj.sudoku.core.Mode
 import com.valenciaj.sudoku.core.Stats
+import com.valenciaj.sudoku.core.Technique
+import com.valenciaj.sudoku.core.Tutorial
 import org.junit.Rule
 import org.junit.Test
 import kotlin.random.Random
@@ -91,6 +93,27 @@ class ScreenshotTest {
     @Test
     fun settings() = shot {
         SettingsScreen(Settings(), {}, CloudState(configured = true, login = "jugador", lastSync = 0L), NoCloud) {}
+    }
+
+    @Test
+    fun tutorial() = shot(accent = Accent.GREEN) {
+        val example = Tutorial.example(Technique.X_WING, Random(1))
+        TutorialScreen(TutorialState(Technique.X_WING, example, revealed = true), NoTutorial) {}
+    }
+
+    @Test
+    fun accessibility() = paparazzi.snapshot {
+        val settings = Settings(digitSize = DigitSize.XLARGE, colorBlind = true)
+        SudokuTheme(settings) {
+            AppSurface { GameScreen(game, UiState(screen = Screen.GAME, game = game), settings, NoActions) }
+        }
+    }
+
+    private object NoTutorial : TutorialActions {
+        override fun openLesson(technique: Technique?) {}
+        override fun nextExample() {}
+        override fun answerTutorial(digit: Int) {}
+        override fun revealTutorial() {}
     }
 
     private object NoCloud : CloudActions {

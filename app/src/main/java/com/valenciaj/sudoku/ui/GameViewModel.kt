@@ -18,6 +18,10 @@ import com.valenciaj.sudoku.core.Killer
 import com.valenciaj.sudoku.core.Mode
 import com.valenciaj.sudoku.core.TimeAttack
 import com.valenciaj.sudoku.core.Stats
+import com.valenciaj.sudoku.core.Technique
+import com.valenciaj.sudoku.core.Tutorial
+import com.valenciaj.sudoku.widget.DailyWidget
+import com.valenciaj.sudoku.widget.Reminder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -33,7 +37,7 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.util.UUID
 
-enum class Screen { MENU, GAME, STATS, ACHIEVEMENTS, SETTINGS }
+enum class Screen { MENU, GAME, STATS, ACHIEVEMENTS, SETTINGS, TUTORIAL }
 
 /** Acciones de la pantalla de juego (separadas para poder hacer capturas sin ViewModel). */
 interface GameActions {
@@ -78,7 +82,7 @@ data class CloudState(
     val error: String? = null,
 )
 
-class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, CloudActions {
+class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, CloudActions, TutorialActions {
     private val prefs = app.getSharedPreferences("sudoku", Context.MODE_PRIVATE)
     private val generator = Generator()
 
@@ -116,6 +120,10 @@ class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, Clou
 
     private val _settings = MutableStateFlow(Settings.load(prefs))
     val settings: StateFlow<Settings> = _settings.asStateFlow()
+
+    private val _tutorial = MutableStateFlow(TutorialState())
+    val tutorial: StateFlow<TutorialState> = _tutorial.asStateFlow()
+    private var tutorialJob: Job? = null
 
     private var timer: Job? = null
     private var inForeground = false
@@ -234,14 +242,47 @@ class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, Clou
             timer?.cancel()
             _state.update { UiState(saved = loadSaved(), menuMode = it.menuMode) }
         } else {
+            if (screen == Screen.TUTORIAL) openLesson(null)
             _state.update { it.copy(screen = screen) }
         }
     }
 
     fun updateSettings(settings: Settings) {
+        val before = _settings.value
         _settings.value = settings
         settings.save(prefs)
+        if (settings.reminder != before.reminder || settings.reminderHour != before.reminderHour) {
+            if (settings.reminder) Reminder.schedule(getApplication(), settings.reminderHour)
+            else Reminder.cancel(getApplication())
+        }
     }
+
+    // --- Tutorial de técnicas ---
+
+    override fun openLesson(technique: Technique?) {
+        tutorialJob?.cancel()
+        _tutorial.value = TutorialState(technique = technique)
+        if (technique != null) nextExample()
+    }
+
+    override fun nextExample() {
+        val technique = _tutorial.value.technique ?: return
+        tutorialJob?.cancel()
+        _tutorial.value = TutorialState(technique = technique, loading = true)
+        tutorialJob = viewModelScope.launch {
+            val example = withContext(Dispatchers.Default) { Tutorial.example(technique) }
+            _tutorial.value = TutorialState(technique = technique, example = example)
+        }
+    }
+
+    override fun answerTutorial(digit: Int) {
+        val placement = _tutorial.value.example?.placement ?: return
+        val right = placement.second == digit
+        _tutorial.update { it.copy(answered = right) }
+        _feedback.tryEmit(if (right) Feedback.PLACE else Feedback.ERROR)
+    }
+
+    override fun revealTutorial() = _tutorial.update { it.copy(revealed = true) }
 
     // --- Ciclo de vida y guardado ---
 
@@ -284,6 +325,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, Clou
         ownStats = f(ownStats)
         prefs.edit { putString(KEY_STATS, ownStats.encode()) }
         _stats.value = total()
+        DailyWidget.updateAll(getApplication())
     }
 
     private fun save() {
@@ -355,6 +397,7 @@ class GameViewModel(app: Application) : AndroidViewModel(app), GameActions, Clou
                     }
                 }
                 _stats.value = total()
+                DailyWidget.updateAll(getApplication())
                 if (_state.value.screen != Screen.GAME) _state.update { it.copy(saved = loadSaved()) }
                 _cloud.update { it.copy(busy = false, lastSync = now) }
             } catch (e: Exception) {

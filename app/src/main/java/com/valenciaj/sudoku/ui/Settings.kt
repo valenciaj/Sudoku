@@ -6,6 +6,9 @@ import androidx.core.content.edit
 
 enum class ThemeMode(val label: String) { SYSTEM("Sistema"), LIGHT("Claro"), DARK("Oscuro") }
 
+/** Tamaño de los números del tablero. */
+enum class DigitSize(val scale: Float) { NORMAL(1f), LARGE(1.2f), XLARGE(1.4f) }
+
 enum class Accent(val label: String, val color: Color) {
     BLUE("Azul", Color(0xFF3F51B5)),
     GREEN("Verde", Color(0xFF2E7D32)),
@@ -23,6 +26,10 @@ data class Settings(
     val highlightSame: Boolean = true,
     val sound: Boolean = true,
     val vibration: Boolean = true,
+    val reminder: Boolean = false,
+    val reminderHour: Int = 20,
+    val digitSize: DigitSize = DigitSize.NORMAL,
+    val colorBlind: Boolean = false,
 ) {
     fun save(prefs: SharedPreferences) = prefs.edit {
         putString("theme", themeMode.name)
@@ -31,6 +38,10 @@ data class Settings(
         putBoolean("highlight_same", highlightSame)
         putBoolean("sound", sound)
         putBoolean("vibration", vibration)
+        putBoolean("reminder", reminder)
+        putInt("reminder_hour", reminderHour)
+        putString("digit_size", digitSize.name)
+        putBoolean("color_blind", colorBlind)
     }
 
     companion object {
@@ -41,6 +52,10 @@ data class Settings(
             highlightSame = prefs.getBoolean("highlight_same", true),
             sound = prefs.getBoolean("sound", true),
             vibration = prefs.getBoolean("vibration", true),
+            reminder = prefs.getBoolean("reminder", false),
+            reminderHour = prefs.getInt("reminder_hour", 20),
+            digitSize = enumOr(prefs.getString("digit_size", null), DigitSize.NORMAL),
+            colorBlind = prefs.getBoolean("color_blind", false),
         )
 
         private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =

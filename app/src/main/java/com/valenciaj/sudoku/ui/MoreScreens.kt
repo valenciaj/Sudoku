@@ -34,6 +34,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import com.valenciaj.sudoku.R
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import java.text.DateFormat
 import java.util.Date
 import com.valenciaj.sudoku.core.Achievement
@@ -127,7 +131,58 @@ fun SettingsScreen(
         SwitchRow(stringResource(R.string.sound), settings.sound) { onChange(settings.copy(sound = it)) }
         SwitchRow(stringResource(R.string.vibration), settings.vibration) { onChange(settings.copy(vibration = it)) }
 
+        Text(stringResource(R.string.accessibility), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.digit_size), style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DigitSize.entries.forEach { size ->
+                FilterChip(
+                    selected = settings.digitSize == size,
+                    onClick = { onChange(settings.copy(digitSize = size)) },
+                    label = { Text(size.text()) },
+                )
+            }
+        }
+        SwitchRow(stringResource(R.string.color_blind), settings.colorBlind) { onChange(settings.copy(colorBlind = it)) }
+
+        ReminderSection(settings, onChange)
+
         CloudSection(cloud, cloudActions)
+    }
+}
+
+@Composable
+private fun DigitSize.text(): String = stringResource(
+    when (this) {
+        DigitSize.NORMAL -> R.string.size_normal
+        DigitSize.LARGE -> R.string.size_large
+        DigitSize.XLARGE -> R.string.size_xlarge
+    },
+)
+
+/** Recordatorio diario: en Android 13+ hay que pedir permiso de notificaciones. */
+@Composable
+private fun ReminderSection(settings: Settings, onChange: (Settings) -> Unit) {
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) onChange(settings.copy(reminder = true))
+    }
+    Text(stringResource(R.string.reminder), style = MaterialTheme.typography.titleMedium)
+    SwitchRow(stringResource(R.string.reminder_switch), settings.reminder) { on ->
+        if (on && Build.VERSION.SDK_INT >= 33) {
+            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            onChange(settings.copy(reminder = on))
+        }
+    }
+    if (settings.reminder) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { onChange(settings.copy(reminderHour = (settings.reminderHour + 23) % 24)) }) {
+                Text("−")
+            }
+            Text(stringResource(R.string.reminder_hour, settings.reminderHour), style = MaterialTheme.typography.titleMedium)
+            OutlinedButton(onClick = { onChange(settings.copy(reminderHour = (settings.reminderHour + 1) % 24)) }) {
+                Text("+")
+            }
+        }
     }
 }
 

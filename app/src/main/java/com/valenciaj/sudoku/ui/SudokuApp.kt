@@ -41,6 +41,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.valenciaj.sudoku.R
 import androidx.compose.ui.res.stringResource
@@ -61,6 +67,7 @@ fun SudokuApp(vm: GameViewModel) {
     val stats by vm.stats.collectAsState()
     val settings by vm.settings.collectAsState()
     val cloud by vm.cloud.collectAsState()
+    val tutorial by vm.tutorial.collectAsState()
 
     // Para el cronómetro y guarda la partida cuando la app se va a segundo plano.
     LifecycleResumeEffect(vm) {
@@ -70,13 +77,18 @@ fun SudokuApp(vm: GameViewModel) {
 
     AppSurface {
         val game = state.game
-        if (state.screen != Screen.MENU) BackHandler { vm.show(Screen.MENU) }
+        if (state.screen != Screen.MENU) {
+            BackHandler {
+                if (state.screen == Screen.TUTORIAL && tutorial.technique != null) vm.openLesson(null) else vm.show(Screen.MENU)
+            }
+        }
         when {
             state.loading -> CircularProgressIndicator()
             state.screen == Screen.STATS -> StatsScreen(stats, vm.today, onBack = { vm.show(Screen.MENU) })
             state.screen == Screen.ACHIEVEMENTS -> AchievementsScreen(stats, onBack = { vm.show(Screen.MENU) })
             state.screen == Screen.SETTINGS ->
                 SettingsScreen(settings, vm::updateSettings, cloud, vm, onBack = { vm.show(Screen.MENU) })
+            state.screen == Screen.TUTORIAL -> TutorialScreen(tutorial, vm, onBack = { vm.show(Screen.MENU) })
             state.screen == Screen.GAME && game != null -> GameScreen(game, state, settings, vm)
             else -> MenuScreen(
                 saved = state.saved,
@@ -165,6 +177,9 @@ fun MenuScreen(
             Button(onClick = { onSelect(level) }, Modifier.fillMaxWidth().height(56.dp)) {
                 Text(level.text(), fontSize = 18.sp)
             }
+        }
+        OutlinedButton(onClick = { onShow(Screen.TUTORIAL) }, Modifier.fillMaxWidth()) {
+            Text("🎓 " + stringResource(R.string.tutorial))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             TextButton(onClick = { onShow(Screen.STATS) }) { Text(stringResource(R.string.stats)) }
@@ -311,6 +326,17 @@ private fun Board(game: Game, selected: Int?, hintCell: Int?, settings: Settings
         IntArray(Grid.CELLS) { -1 }.also { owner -> cages.forEachIndexed { i, c -> c.cells.forEach { owner[it] = i } } }
     }
     val sumCells = remember(cages) { cages.associate { it.cells.min() to it.sum } }
+    val scale = settings.digitSize.scale
+    val dark = colors.background.luminance() < 0.5f
+    // Daltonismo (paleta Okabe-Ito): azul para lo escrito, bermellón tachado para los errores.
+    val wrongColor = if (settings.colorBlind) Color(0xFFD55E00) else colors.error
+    val userColor = when {
+        !settings.colorBlind -> colors.primary
+        dark -> Color(0xFF56B4E9)
+        else -> Color(0xFF0072B2)
+    }
+    val context = LocalContext.current
+    val selectLabel = stringResource(R.string.cell_select)
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             for (r in 0 until 9) {
@@ -328,24 +354,31 @@ private fun Board(game: Game, selected: Int?, hintCell: Int?, settings: Settings
                             related -> colors.surfaceVariant
                             else -> colors.surface
                         }
+                        val wrong = game.isWrong(cell)
                         val textColor = when {
-                            game.isWrong(cell) -> colors.error
+                            wrong -> wrongColor
                             game.isGiven(cell) -> colors.onSurface
-                            else -> colors.primary
+                            else -> userColor
                         }
+                        val description = cellDescription(context, game, cell, cageOf, cages)
                         Box(
-                            Modifier.weight(1f).fillMaxSize().background(background).clickable { onSelect(cell) },
+                            Modifier.weight(1f).fillMaxSize().background(background).clickable { onSelect(cell) }
+                                .clearAndSetSemantics {
+                                    contentDescription = description
+                                    onClick(label = selectLabel) { onSelect(cell); true }
+                                },
                             contentAlignment = Alignment.Center,
                         ) {
                             if (value != 0) {
                                 Text(
                                     value.toString(),
                                     color = textColor,
-                                    fontSize = 22.sp,
+                                    fontSize = 22.sp * scale,
                                     fontWeight = if (game.isGiven(cell)) FontWeight.Bold else FontWeight.Normal,
+                                    textDecoration = if (wrong && settings.colorBlind) TextDecoration.LineThrough else null,
                                 )
                             } else if (game.notes[cell] != 0) {
-                                Notes(game, cell, selectedValue, colors.onSurfaceVariant, colors.primary)
+                                Notes(game, cell, selectedValue, colors.onSurfaceVariant, colors.primary, scale)
                             }
                             sumCells[cell]?.let { sum ->
                                 Text(
@@ -401,7 +434,7 @@ private fun CageLines(cageOf: IntArray, color: Color) {
 
 /** Notas a lápiz: mini cuadrícula 3x3. La nota igual al número elegido se resalta. */
 @Composable
-private fun Notes(game: Game, cell: Int, highlight: Int, color: Color, highlightColor: Color) {
+private fun Notes(game: Game, cell: Int, highlight: Int, color: Color, highlightColor: Color, scale: Float) {
     Column(Modifier.fillMaxSize().padding(1.dp)) {
         for (r in 0 until 3) {
             Row(Modifier.weight(1f)) {
@@ -414,8 +447,8 @@ private fun Notes(game: Game, cell: Int, highlight: Int, color: Color, highlight
                                 d.toString(),
                                 color = if (hl) highlightColor else color,
                                 fontWeight = if (hl) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 9.sp,
-                                lineHeight = 9.sp,
+                                fontSize = 9.sp * minOf(scale, 1.2f),
+                                lineHeight = 9.sp * minOf(scale, 1.2f),
                             )
                         }
                     }
@@ -425,8 +458,32 @@ private fun Notes(game: Game, cell: Int, highlight: Int, color: Color, highlight
     }
 }
 
+/** Texto que lee TalkBack para una casilla: fila, columna, contenido y jaula. */
+private fun cellDescription(
+    context: android.content.Context,
+    game: Game,
+    cell: Int,
+    cageOf: IntArray,
+    cages: List<com.valenciaj.sudoku.core.Cage>,
+): String {
+    val value = game.values[cell]
+    var content = when {
+        value != 0 && game.isGiven(cell) -> context.getString(R.string.cell_given, value)
+        value != 0 && game.isWrong(cell) -> context.getString(R.string.cell_wrong, value)
+        value != 0 -> value.toString()
+        game.notes[cell] != 0 -> context.getString(
+            R.string.cell_notes,
+            (1..9).filter { game.hasNote(cell, it) }.joinToString(" "),
+        )
+        else -> context.getString(R.string.cell_empty)
+    }
+    val cage = cageOf[cell]
+    if (cage >= 0) content = context.getString(R.string.cell_cage, content, cages[cage].sum)
+    return context.getString(R.string.cell_desc, Grid.row(cell) + 1, Grid.col(cell) + 1, content)
+}
+
 @Composable
-private fun GridLines(thin: Color, thick: Color) {
+internal fun GridLines(thin: Color, thick: Color) {
     Canvas(Modifier.fillMaxSize()) {
         val step = size.width / 9
         for (i in 0..9) {
