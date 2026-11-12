@@ -42,6 +42,16 @@ class ScreenshotTest {
     }
 
     @Test
+    fun menuDark() = shot(dark = true, accent = Accent.PURPLE) {
+        MenuScreen(game, stats, today, {}, {}, Mode.CLASSIC, {}, {}, {})
+    }
+
+    @Test
+    fun settingsDark() = shot(dark = true, accent = Accent.GREEN) {
+        SettingsScreen(Settings(themeMode = ThemeMode.DARK, accent = Accent.GREEN), {}, CloudState(configured = true, login = "jugador", lastSync = 0L), NoCloud) {}
+    }
+
+    @Test
     fun game() = shot {
         GameScreen(game, UiState(screen = Screen.GAME, game = game, selected = selectedCell()), Settings(), NoActions)
     }

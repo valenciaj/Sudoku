@@ -34,6 +34,9 @@ class TabletScreenshotTest {
     fun menu() = shot { MenuScreen(Fixtures.game, Fixtures.stats, Fixtures.today, {}, {}, Mode.CLASSIC, {}, {}, {}) }
 
     @Test
+    fun menuDark() = shot(dark = true) { MenuScreen(Fixtures.game, Fixtures.stats, Fixtures.today, {}, {}, Mode.CLASSIC, {}, {}, {}) }
+
+    @Test
     fun statistics() = shot { StatsScreen(Fixtures.stats, Fixtures.today) {} }
 }
 

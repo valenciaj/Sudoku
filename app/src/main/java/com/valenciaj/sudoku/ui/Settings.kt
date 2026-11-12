@@ -10,11 +10,11 @@ enum class ThemeMode(val label: String) { SYSTEM("Sistema"), LIGHT("Claro"), DAR
 enum class DigitSize(val scale: Float) { NORMAL(1f), LARGE(1.2f), XLARGE(1.4f) }
 
 enum class Accent(val label: String, val color: Color) {
-    BLUE("Azul", Color(0xFF3F51B5)),
-    GREEN("Verde", Color(0xFF2E7D32)),
-    PURPLE("Morado", Color(0xFF7B1FA2)),
-    ORANGE("Naranja", Color(0xFFE65100)),
-    PINK("Rosa", Color(0xFFC2185B)),
+    BLUE("Azul", Color(0xFF4F5BD5)),
+    GREEN("Verde", Color(0xFF14A37F)),
+    PURPLE("Morado", Color(0xFF7C4DFF)),
+    ORANGE("Naranja", Color(0xFFF26B1D)),
+    PINK("Rosa", Color(0xFFE5397C)),
 }
 
 data class Settings(

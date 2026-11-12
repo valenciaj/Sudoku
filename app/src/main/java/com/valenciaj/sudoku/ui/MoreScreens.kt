@@ -1,6 +1,15 @@
 package com.valenciaj.sudoku.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,27 +55,48 @@ import com.valenciaj.sudoku.core.Stats
 
 @Composable
 fun AchievementsScreen(stats: Stats, onBack: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
     val unlocked = Achievement.entries.count { it.isUnlocked(stats) }
+    val total = Achievement.entries.size
     Column(
-        Modifier.widthIn(max = 960.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        Modifier.widthIn(max = 960.dp).fillMaxWidth().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ScreenHeader(stringResource(R.string.achievements), onBack)
-        Text(stringResource(R.string.achievements_count, unlocked, Achievement.entries.size), style = MaterialTheme.typography.titleMedium)
-        AdaptiveList(Achievement.entries) { a ->
+        Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = colors.surfaceContainerLow) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(stringResource(R.string.achievements_count, unlocked, total), style = MaterialTheme.typography.titleMedium)
+                LinearProgressIndicator(
+                    progress = { unlocked.toFloat() / total },
+                    modifier = Modifier.fillMaxWidth().height(8.dp),
+                    strokeCap = StrokeCap.Round,
+                    trackColor = colors.surfaceContainerHighest,
+                    drawStopIndicator = {},
+                )
+            }
+        }
+        AdaptiveList(Achievement.entries.sortedByDescending { it.isUnlocked(stats) }) { a ->
             val done = a.isUnlocked(stats)
-            Card(
-                Modifier.fillMaxWidth().alpha(if (done) 1f else 0.5f),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (done) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceVariant,
-                ),
+            Surface(
+                Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = if (done) colors.surfaceContainerLowest else colors.surfaceContainerLow,
+                border = if (done) BorderStroke(1.dp, colors.outlineVariant) else null,
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (done) "🏆" else "🔒", fontSize = 28.sp)
-                    Column(Modifier.padding(start = 16.dp)) {
-                        Text(a.title(), fontWeight = FontWeight.Bold)
-                        Text(a.description(), style = MaterialTheme.typography.bodyMedium)
+                    Box(
+                        Modifier.size(48.dp).background(if (done) brandGradient() else SolidColor(colors.surfaceContainerHighest), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        AppIcon(
+                            if (done) R.drawable.ic_emoji_events else R.drawable.ic_lock,
+                            null,
+                            tint = if (done) Color.White else colors.onSurfaceVariant,
+                        )
+                    }
+                    Column(Modifier.padding(start = 14.dp).alpha(if (done) 1f else 0.6f)) {
+                        Text(a.title(), style = MaterialTheme.typography.titleMedium)
+                        Text(a.description(), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
                     }
                 }
             }
@@ -83,71 +113,64 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     Column(
-        Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        Modifier.widthIn(max = 520.dp).fillMaxWidth().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         ScreenHeader(stringResource(R.string.settings), onBack)
 
-        Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ThemeMode.entries.forEach { mode ->
-                FilterChip(
-                    selected = settings.themeMode == mode,
-                    onClick = { onChange(settings.copy(themeMode = mode)) },
-                    label = { Text(mode.text()) },
-                )
-            }
-        }
-
-        Text(stringResource(R.string.color), style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Accent.entries.forEach { accent ->
-                val selected = settings.accent == accent
-                Box(
-                    Modifier
-                        .size(44.dp)
-                        .background(accent.color, CircleShape)
-                        .border(
-                            width = if (selected) 3.dp else 0.dp,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            shape = CircleShape,
-                        )
-                        .clickable { onChange(settings.copy(accent = accent)) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (selected) Text("✓", color = androidx.compose.ui.graphics.Color.White, fontSize = 20.sp)
+        SettingsGroup(stringResource(R.string.theme)) {
+            SegmentedPills(
+                ThemeMode.entries.map { it.text() },
+                settings.themeMode.ordinal,
+                { onChange(settings.copy(themeMode = ThemeMode.entries[it])) },
+            )
+            Text(stringResource(R.string.color), style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Accent.entries.forEach { accent ->
+                    val selected = settings.accent == accent
+                    val ring by animateColorAsState(if (selected) MaterialTheme.colorScheme.onSurface else Color.Transparent, label = "ring")
+                    Box(
+                        Modifier
+                            .size(48.dp)
+                            .border(3.dp, ring, CircleShape)
+                            .padding(5.dp)
+                            .background(accent.color, CircleShape)
+                            .clickable { onChange(settings.copy(accent = accent)) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (selected) AppIcon(R.drawable.ic_check, accent.label, Modifier.size(20.dp), tint = Color.White)
+                    }
                 }
             }
         }
 
-        Text(stringResource(R.string.highlight), style = MaterialTheme.typography.titleMedium)
-        SwitchRow(stringResource(R.string.highlight_related), settings.highlightRelated) {
-            onChange(settings.copy(highlightRelated = it))
-        }
-        SwitchRow(stringResource(R.string.highlight_same), settings.highlightSame) {
-            onChange(settings.copy(highlightSame = it))
-        }
-
-        Text(stringResource(R.string.feedback), style = MaterialTheme.typography.titleMedium)
-        SwitchRow(stringResource(R.string.sound), settings.sound) { onChange(settings.copy(sound = it)) }
-        SwitchRow(stringResource(R.string.vibration), settings.vibration) { onChange(settings.copy(vibration = it)) }
-
-        Text(stringResource(R.string.accessibility), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(R.string.digit_size), style = MaterialTheme.typography.bodyMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            DigitSize.entries.forEach { size ->
-                FilterChip(
-                    selected = settings.digitSize == size,
-                    onClick = { onChange(settings.copy(digitSize = size)) },
-                    label = { Text(size.text()) },
-                )
+        SettingsGroup(stringResource(R.string.highlight)) {
+            SwitchRow(stringResource(R.string.highlight_related), settings.highlightRelated) {
+                onChange(settings.copy(highlightRelated = it))
+            }
+            SwitchRow(stringResource(R.string.highlight_same), settings.highlightSame) {
+                onChange(settings.copy(highlightSame = it))
             }
         }
-        SwitchRow(stringResource(R.string.color_blind), settings.colorBlind) { onChange(settings.copy(colorBlind = it)) }
 
-        ReminderSection(settings, onChange)
+        SettingsGroup(stringResource(R.string.feedback)) {
+            SwitchRow(stringResource(R.string.sound), settings.sound) { onChange(settings.copy(sound = it)) }
+            SwitchRow(stringResource(R.string.vibration), settings.vibration) { onChange(settings.copy(vibration = it)) }
+        }
 
-        CloudSection(cloud, cloudActions)
+        SettingsGroup(stringResource(R.string.accessibility)) {
+            Text(stringResource(R.string.digit_size), style = MaterialTheme.typography.titleSmall)
+            SegmentedPills(
+                DigitSize.entries.map { it.text() },
+                settings.digitSize.ordinal,
+                { onChange(settings.copy(digitSize = DigitSize.entries[it])) },
+            )
+            SwitchRow(stringResource(R.string.color_blind), settings.colorBlind) { onChange(settings.copy(colorBlind = it)) }
+        }
+
+        SettingsGroup(stringResource(R.string.reminder)) { ReminderSection(settings, onChange) }
+
+        SettingsGroup(stringResource(R.string.cloud)) { CloudSection(cloud, cloudActions) }
     }
 }
 
@@ -171,7 +194,6 @@ private fun ReminderSection(settings: Settings, onChange: (Settings) -> Unit) {
     } else {
         null
     }
-    Text(stringResource(R.string.reminder), style = MaterialTheme.typography.titleMedium)
     SwitchRow(stringResource(R.string.reminder_switch), settings.reminder) { on ->
         if (on && Build.VERSION.SDK_INT >= 33 && permission != null) {
             permission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -195,7 +217,7 @@ private fun ReminderSection(settings: Settings, onChange: (Settings) -> Unit) {
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f))
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }
@@ -210,7 +232,6 @@ interface CloudActions {
 
 @Composable
 private fun CloudSection(cloud: CloudState, actions: CloudActions) {
-    Text(stringResource(R.string.cloud), style = MaterialTheme.typography.titleMedium)
     Text(stringResource(R.string.cloud_info), style = MaterialTheme.typography.bodyMedium)
     val uriHandler = LocalUriHandler.current
     when {
