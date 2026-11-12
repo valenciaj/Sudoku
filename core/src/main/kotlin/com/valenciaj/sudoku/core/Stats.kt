@@ -62,6 +62,32 @@ data class Stats(
         )
     }
 
+    /**
+     * Suma las estadísticas de varios dispositivos (cada uno sube solo las suyas,
+     * como un contador CRDT: así nunca se cuenta dos veces). Para el diario se queda
+     * con la racha del dispositivo que jugó más recientemente.
+     */
+    operator fun plus(other: Stats): Stats {
+        val merged = (levels.keys + other.levels.keys).associateWith { level ->
+            val a = this[level]
+            val b = other[level]
+            LevelStats(
+                played = a.played + b.played,
+                won = a.won + b.won,
+                perfect = a.perfect + b.perfect,
+                bestSeconds = listOfNotNull(a.bestSeconds, b.bestSeconds).minOrNull(),
+                totalWonSeconds = a.totalWonSeconds + b.totalWonSeconds,
+                noHints = a.noHints + b.noHints,
+            )
+        }
+        val latest = maxOf(daily, other.daily, compareBy { it.lastDay ?: Long.MIN_VALUE })
+        val d = latest.copy(
+            completed = daily.completed + other.daily.completed,
+            bestStreak = maxOf(daily.bestStreak, other.daily.bestStreak),
+        )
+        return Stats(merged, d)
+    }
+
     private fun update(level: Difficulty, f: (LevelStats) -> LevelStats) =
         copy(levels = levels + (level to f(this[level])))
 

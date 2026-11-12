@@ -27,6 +27,15 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
+import com.valenciaj.sudoku.R
+import java.text.DateFormat
+import java.util.Date
 import com.valenciaj.sudoku.core.Achievement
 import com.valenciaj.sudoku.core.Stats
 
@@ -37,8 +46,8 @@ fun AchievementsScreen(stats: Stats, onBack: () -> Unit) {
         Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        ScreenHeader("Logros", onBack)
-        Text("$unlocked de ${Achievement.entries.size} conseguidos", style = MaterialTheme.typography.titleMedium)
+        ScreenHeader(stringResource(R.string.achievements), onBack)
+        Text(stringResource(R.string.achievements_count, unlocked, Achievement.entries.size), style = MaterialTheme.typography.titleMedium)
         Achievement.entries.forEach { a ->
             val done = a.isUnlocked(stats)
             Card(
@@ -51,8 +60,8 @@ fun AchievementsScreen(stats: Stats, onBack: () -> Unit) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(if (done) "🏆" else "🔒", fontSize = 28.sp)
                     Column(Modifier.padding(start = 16.dp)) {
-                        Text(a.title, fontWeight = FontWeight.Bold)
-                        Text(a.description, style = MaterialTheme.typography.bodyMedium)
+                        Text(a.title(), fontWeight = FontWeight.Bold)
+                        Text(a.description(), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
@@ -61,25 +70,31 @@ fun AchievementsScreen(stats: Stats, onBack: () -> Unit) {
 }
 
 @Composable
-fun SettingsScreen(settings: Settings, onChange: (Settings) -> Unit, onBack: () -> Unit) {
+fun SettingsScreen(
+    settings: Settings,
+    onChange: (Settings) -> Unit,
+    cloud: CloudState,
+    cloudActions: CloudActions,
+    onBack: () -> Unit,
+) {
     Column(
         Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        ScreenHeader("Ajustes", onBack)
+        ScreenHeader(stringResource(R.string.settings), onBack)
 
-        Text("Tema", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ThemeMode.entries.forEach { mode ->
                 FilterChip(
                     selected = settings.themeMode == mode,
                     onClick = { onChange(settings.copy(themeMode = mode)) },
-                    label = { Text(mode.label) },
+                    label = { Text(mode.text()) },
                 )
             }
         }
 
-        Text("Color", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.color), style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Accent.entries.forEach { accent ->
                 val selected = settings.accent == accent
@@ -100,13 +115,19 @@ fun SettingsScreen(settings: Settings, onChange: (Settings) -> Unit, onBack: () 
             }
         }
 
-        Text("Resaltado", style = MaterialTheme.typography.titleMedium)
-        SwitchRow("Fila, columna y caja", settings.highlightRelated) {
+        Text(stringResource(R.string.highlight), style = MaterialTheme.typography.titleMedium)
+        SwitchRow(stringResource(R.string.highlight_related), settings.highlightRelated) {
             onChange(settings.copy(highlightRelated = it))
         }
-        SwitchRow("Números y notas iguales", settings.highlightSame) {
+        SwitchRow(stringResource(R.string.highlight_same), settings.highlightSame) {
             onChange(settings.copy(highlightSame = it))
         }
+
+        Text(stringResource(R.string.feedback), style = MaterialTheme.typography.titleMedium)
+        SwitchRow(stringResource(R.string.sound), settings.sound) { onChange(settings.copy(sound = it)) }
+        SwitchRow(stringResource(R.string.vibration), settings.vibration) { onChange(settings.copy(vibration = it)) }
+
+        CloudSection(cloud, cloudActions)
     }
 }
 
@@ -115,5 +136,65 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/** Acciones de la copia en la nube. */
+interface CloudActions {
+    fun connectGitHub()
+    fun cancelConnect()
+    fun disconnectGitHub()
+    fun syncNow()
+}
+
+@Composable
+private fun CloudSection(cloud: CloudState, actions: CloudActions) {
+    Text(stringResource(R.string.cloud), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.cloud_info), style = MaterialTheme.typography.bodyMedium)
+    val uriHandler = LocalUriHandler.current
+    when {
+        !cloud.configured -> Text(stringResource(R.string.cloud_not_configured), style = MaterialTheme.typography.bodySmall)
+
+        cloud.userCode != null -> Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.cloud_code))
+                Text(cloud.userCode, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                val uri = cloud.verificationUri ?: "https://github.com/login/device"
+                Button(onClick = { uriHandler.openUri(uri) }) {
+                    Text(stringResource(R.string.cloud_open, uri.removePrefix("https://")))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text(stringResource(R.string.cloud_waiting), Modifier.padding(start = 8.dp).weight(1f))
+                    TextButton(onClick = actions::cancelConnect) { Text(stringResource(R.string.cancel)) }
+                }
+            }
+        }
+
+        cloud.login == null -> Button(onClick = actions::connectGitHub, enabled = !cloud.busy) {
+            Text(stringResource(R.string.cloud_connect))
+        }
+
+        else -> {
+            Text(stringResource(R.string.cloud_connected, cloud.login.orEmpty()), fontWeight = FontWeight.Bold)
+            Text(
+                when {
+                    cloud.busy -> stringResource(R.string.cloud_syncing)
+                    cloud.lastSync != null -> stringResource(
+                        R.string.cloud_last_sync,
+                        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(cloud.lastSync)),
+                    )
+                    else -> stringResource(R.string.cloud_never)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = actions::syncNow, enabled = !cloud.busy) { Text(stringResource(R.string.cloud_sync)) }
+                OutlinedButton(onClick = actions::disconnectGitHub) { Text(stringResource(R.string.cloud_disconnect)) }
+            }
+        }
+    }
+    cloud.error?.let {
+        Text(stringResource(R.string.cloud_error, it), color = MaterialTheme.colorScheme.error)
     }
 }

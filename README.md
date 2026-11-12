@@ -1,6 +1,6 @@
 # Sudoku (Android)
 
-App de Sudoku en Kotlin + Jetpack Compose, sin internet ni anuncios.
+App de Sudoku en Kotlin + Jetpack Compose, sin anuncios. En español e inglés.
 
 ## Niveles
 
@@ -34,3 +34,4 @@ Cada push compila el APK en GitHub Actions y lo deja como artefacto descargable.
 3. ✅ Juego: notas a lápiz, deshacer, cronómetro con pausa, guardar y continuar partida.
 4. ✅ Estadísticas por nivel y preparación para Google Play (ver [docs/google-play.md](docs/google-play.md)).
 5. ✅ Mejoras: pistas, sudoku diario, logros y rachas, tema oscuro y colores, resaltado configurable, icono y capturas.
+6. ✅ Inglés y español, sonidos y vibración, copia en la nube con GitHub (ver [docs/nube-github.md](docs/nube-github.md)).

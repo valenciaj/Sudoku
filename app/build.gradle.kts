@@ -15,8 +15,15 @@ android {
         applicationId = "com.valenciaj.sudoku"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
+
+        // Client ID de la OAuth App de GitHub (es público, no es un secreto).
+        // Se pone en gradle.properties (githubClientId=...) o en la variable SUDOKU_GITHUB_CLIENT_ID.
+        val githubClientId = (findProperty("githubClientId") as String?)?.takeIf { it.isNotBlank() }
+            ?: System.getenv("SUDOKU_GITHUB_CLIENT_ID")
+            ?: ""
+        buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
     }
 
     // Firma de release: desde keystore.properties (local, no se sube a git)
@@ -57,6 +64,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

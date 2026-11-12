@@ -14,6 +14,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.valenciaj.sudoku.R
+import androidx.compose.ui.res.stringResource
 import com.valenciaj.sudoku.core.Difficulty
 import com.valenciaj.sudoku.core.Stats
 
@@ -23,21 +25,21 @@ fun StatsScreen(stats: Stats, today: Long, onBack: () -> Unit) {
         Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ScreenHeader("Estadísticas", onBack)
-        StatCard("Sudoku diario") {
-            StatRow("Completados", stats.daily.completed.toString())
-            StatRow("Racha actual", "${stats.daily.currentStreak(today)} días")
-            StatRow("Mejor racha", "${stats.daily.bestStreak} días")
+        ScreenHeader(stringResource(R.string.stats), onBack)
+        StatCard(stringResource(R.string.daily)) {
+            StatRow(stringResource(R.string.completed), stats.daily.completed.toString())
+            StatRow(stringResource(R.string.current_streak), stringResource(R.string.days, stats.daily.currentStreak(today)))
+            StatRow(stringResource(R.string.best_streak), stringResource(R.string.days, stats.daily.bestStreak))
         }
         Difficulty.entries.forEach { level ->
             val s = stats[level]
-            StatCard(level.label) {
-                StatRow("Jugadas", s.played.toString())
-                StatRow("Ganadas", "${s.won} (${s.winRate}%)")
-                StatRow("Sin errores", s.perfect.toString())
-                StatRow("Sin pistas", s.noHints.toString())
-                StatRow("Mejor tiempo", s.bestSeconds?.let(::formatTime) ?: "—")
-                StatRow("Tiempo medio", s.averageSeconds?.let(::formatTime) ?: "—")
+            StatCard(level.text()) {
+                StatRow(stringResource(R.string.played), s.played.toString())
+                StatRow(stringResource(R.string.won), stringResource(R.string.won_value, s.won, s.winRate))
+                StatRow(stringResource(R.string.perfect), s.perfect.toString())
+                StatRow(stringResource(R.string.no_hints), s.noHints.toString())
+                StatRow(stringResource(R.string.best_time), s.bestSeconds?.let(::formatTime) ?: "—")
+                StatRow(stringResource(R.string.avg_time), s.averageSeconds?.let(::formatTime) ?: "—")
             }
         }
     }
