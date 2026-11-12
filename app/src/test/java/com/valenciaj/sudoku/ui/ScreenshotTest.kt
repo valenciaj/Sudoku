@@ -18,7 +18,7 @@ import kotlin.random.Random
  */
 class ScreenshotTest {
     @get:Rule
-    val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_5, maxPercentDifference = 1.0)
+    val paparazzi = Paparazzi(deviceConfig = DeviceConfig.PIXEL_5.copy(locale = "es"), maxPercentDifference = 1.0)
 
     private val today = 20_400L
     private val puzzle = Generator(Random(11)).generate(Difficulty.HARD)
@@ -71,6 +71,18 @@ class ScreenshotTest {
 
     @Test
     fun statistics() = shot(dark = true) { StatsScreen(stats, today) {} }
+
+    @Test
+    fun settings() = shot {
+        SettingsScreen(Settings(), {}, CloudState(configured = true, login = "jugador", lastSync = 0L), NoCloud) {}
+    }
+
+    private object NoCloud : CloudActions {
+        override fun connectGitHub() {}
+        override fun cancelConnect() {}
+        override fun disconnectGitHub() {}
+        override fun syncNow() {}
+    }
 
     private fun selectedCell() = game.values.indices.first { game.values[it] == 5 }
 

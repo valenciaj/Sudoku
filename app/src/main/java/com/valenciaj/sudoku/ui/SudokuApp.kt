@@ -39,6 +39,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.valenciaj.sudoku.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.valenciaj.sudoku.core.Daily
@@ -53,6 +55,7 @@ fun SudokuApp(vm: GameViewModel) {
     val state by vm.state.collectAsState()
     val stats by vm.stats.collectAsState()
     val settings by vm.settings.collectAsState()
+    val cloud by vm.cloud.collectAsState()
 
     // Para el cronómetro y guarda la partida cuando la app se va a segundo plano.
     LifecycleResumeEffect(vm) {
@@ -68,7 +71,7 @@ fun SudokuApp(vm: GameViewModel) {
             state.screen == Screen.STATS -> StatsScreen(stats, vm.today, onBack = { vm.show(Screen.MENU) })
             state.screen == Screen.ACHIEVEMENTS -> AchievementsScreen(stats, onBack = { vm.show(Screen.MENU) })
             state.screen == Screen.SETTINGS ->
-                SettingsScreen(settings, vm::updateSettings, onBack = { vm.show(Screen.MENU) })
+                SettingsScreen(settings, vm::updateSettings, cloud, vm, onBack = { vm.show(Screen.MENU) })
             state.screen == Screen.GAME && game != null -> GameScreen(game, state, settings, vm)
             else -> MenuScreen(
                 saved = state.saved,
@@ -107,7 +110,7 @@ fun MenuScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Sudoku", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
 
         // Sudoku diario
         val done = stats.daily.isDone(today)
@@ -118,10 +121,10 @@ fun MenuScreen(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         ) {
             Column(Modifier.padding(16.dp)) {
-                Text("Sudoku diario", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.daily), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    "${Daily.difficultyFor(today).label}  ·  " +
-                        (if (done) "✓ Completado" else "¡Juega el de hoy!") +
+                    "${Daily.difficultyFor(today).text()}  ·  " +
+                        stringResource(if (done) R.string.daily_done else R.string.daily_play) +
                         (if (streak > 0) "  ·  🔥 $streak" else ""),
                 )
             }
@@ -129,19 +132,19 @@ fun MenuScreen(
 
         if (saved != null && saved.dailyDay == null) {
             FilledTonalButton(onClick = onContinue, Modifier.fillMaxWidth().height(56.dp)) {
-                Text("Continuar (${saved.puzzle.difficulty.label})", fontSize = 18.sp)
+                Text(stringResource(R.string.continue_game, saved.puzzle.difficulty.text()), fontSize = 18.sp)
             }
         }
-        Text("Nueva partida", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.new_game), style = MaterialTheme.typography.titleMedium)
         Difficulty.entries.forEach { level ->
             Button(onClick = { onSelect(level) }, Modifier.fillMaxWidth().height(56.dp)) {
-                Text(level.label, fontSize = 18.sp)
+                Text(level.text(), fontSize = 18.sp)
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            TextButton(onClick = { onShow(Screen.STATS) }) { Text("Estadísticas") }
-            TextButton(onClick = { onShow(Screen.ACHIEVEMENTS) }) { Text("Logros") }
-            TextButton(onClick = { onShow(Screen.SETTINGS) }) { Text("Ajustes") }
+            TextButton(onClick = { onShow(Screen.STATS) }) { Text(stringResource(R.string.stats)) }
+            TextButton(onClick = { onShow(Screen.ACHIEVEMENTS) }) { Text(stringResource(R.string.achievements)) }
+            TextButton(onClick = { onShow(Screen.SETTINGS) }) { Text(stringResource(R.string.settings)) }
         }
     }
 }
@@ -154,13 +157,15 @@ fun GameScreen(game: Game, state: UiState, settings: Settings, actions: GameActi
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { actions.show(Screen.MENU) }) { Text("← Menú") }
+            TextButton(onClick = { actions.show(Screen.MENU) }) { Text(stringResource(R.string.back_menu)) }
             Text(
-                (if (game.dailyDay != null) "Diario · " else "") + game.puzzle.difficulty.label,
+                game.puzzle.difficulty.text().let {
+                    if (game.dailyDay != null) stringResource(R.string.daily_prefix, it) else it
+                },
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.titleLarge,
             )
-            Text("Errores: ${game.mistakes}", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.mistakes, game.mistakes), style = MaterialTheme.typography.titleMedium)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -168,11 +173,11 @@ fun GameScreen(game: Game, state: UiState, settings: Settings, actions: GameActi
                 Modifier.weight(1f).padding(start = 12.dp),
                 style = MaterialTheme.typography.titleLarge,
             )
-            TextButton(onClick = actions::togglePause) { Text(if (state.paused) "▶ Seguir" else "⏸ Pausa") }
+            TextButton(onClick = actions::togglePause) { Text(stringResource(if (state.paused) R.string.resume else R.string.pause)) }
         }
         Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
             if (state.paused) {
-                Text("En pausa", style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(R.string.paused), style = MaterialTheme.typography.headlineMedium)
             } else {
                 Board(game, state.selected, state.hint?.cell, settings, actions::select)
             }
@@ -184,14 +189,14 @@ fun GameScreen(game: Game, state: UiState, settings: Settings, actions: GameActi
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 val mod = Modifier.weight(1f)
                 val pad = PaddingValues(horizontal = 4.dp)
-                OutlinedButton(actions::undo, mod, enabled = game.canUndo, contentPadding = pad) { Text("Deshacer") }
-                OutlinedButton({ actions.input(0) }, mod, contentPadding = pad) { Text("Borrar") }
+                OutlinedButton(actions::undo, mod, enabled = game.canUndo, contentPadding = pad) { Text(stringResource(R.string.undo)) }
+                OutlinedButton({ actions.input(0) }, mod, contentPadding = pad) { Text(stringResource(R.string.erase)) }
                 if (state.notesMode) {
-                    Button(actions::toggleNotesMode, mod, contentPadding = pad) { Text("Notas ✓") }
+                    Button(actions::toggleNotesMode, mod, contentPadding = pad) { Text(stringResource(R.string.notes_on)) }
                 } else {
-                    OutlinedButton(actions::toggleNotesMode, mod, contentPadding = pad) { Text("Notas") }
+                    OutlinedButton(actions::toggleNotesMode, mod, contentPadding = pad) { Text(stringResource(R.string.notes)) }
                 }
-                OutlinedButton(actions::hint, mod, contentPadding = pad) { Text("Pista") }
+                OutlinedButton(actions::hint, mod, contentPadding = pad) { Text(stringResource(R.string.hint)) }
             }
         }
         NumberPad(game, actions::input)
@@ -200,22 +205,29 @@ fun GameScreen(game: Game, state: UiState, settings: Settings, actions: GameActi
     if (game.isSolved) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("¡Resuelto!") },
+            title = { Text(stringResource(R.string.solved_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Sudoku ${game.puzzle.difficulty.label} en ${formatTime(game.elapsedSeconds)}, " +
-                            "${game.mistakes} errores y ${game.hintsUsed} pistas.",
+                        stringResource(
+                            R.string.solved_text,
+                            game.puzzle.difficulty.text(),
+                            formatTime(game.elapsedSeconds),
+                            game.mistakes,
+                            game.hintsUsed,
+                        ),
                     )
-                    state.newAchievements.forEach { Text("🏆 Logro: ${it.title}", fontWeight = FontWeight.Bold) }
+                    state.newAchievements.forEach {
+                        Text(stringResource(R.string.achievement_unlocked, it.title()), fontWeight = FontWeight.Bold)
+                    }
                 }
             },
             confirmButton = {
                 if (game.dailyDay == null) {
-                    Button(onClick = { actions.newGame(game.puzzle.difficulty) }) { Text("Otro igual") }
+                    Button(onClick = { actions.newGame(game.puzzle.difficulty) }) { Text(stringResource(R.string.same_again)) }
                 }
             },
-            dismissButton = { TextButton(onClick = { actions.show(Screen.MENU) }) { Text("Menú") } },
+            dismissButton = { TextButton(onClick = { actions.show(Screen.MENU) }) { Text(stringResource(R.string.menu)) } },
         )
     }
 }
@@ -227,11 +239,11 @@ private fun HintCard(hint: Hint, actions: GameActions) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("💡 ${hint.message}")
+            Text("💡 ${hint.text()}")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = actions::dismissHint) { Text("Cerrar") }
+                TextButton(onClick = actions::dismissHint) { Text(stringResource(R.string.close)) }
                 Button(onClick = actions::revealHint) {
-                    Text(if (hint.kind == Hint.Kind.WRONG) "Corregir" else "Poner el ${hint.digit}")
+                    Text(if (hint.kind == Hint.Kind.WRONG) stringResource(R.string.fix) else stringResource(R.string.put_digit, hint.digit))
                 }
             }
         }
@@ -354,7 +366,7 @@ private fun NumberPad(game: Game, onInput: (Int) -> Unit) {
 @Composable
 internal fun ScreenHeader(title: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = onBack) { Text("← Menú") }
+        TextButton(onClick = onBack) { Text(stringResource(R.string.back_menu)) }
         Spacer(Modifier.weight(0.01f))
         Text(title, style = MaterialTheme.typography.titleLarge)
     }

@@ -21,12 +21,16 @@ data class Settings(
     val highlightRelated: Boolean = true,
     /** Resaltar los números (y notas) iguales al elegido. */
     val highlightSame: Boolean = true,
+    val sound: Boolean = true,
+    val vibration: Boolean = true,
 ) {
     fun save(prefs: SharedPreferences) = prefs.edit {
         putString("theme", themeMode.name)
         putString("accent", accent.name)
         putBoolean("highlight_related", highlightRelated)
         putBoolean("highlight_same", highlightSame)
+        putBoolean("sound", sound)
+        putBoolean("vibration", vibration)
     }
 
     companion object {
@@ -35,6 +39,8 @@ data class Settings(
             accent = enumOr(prefs.getString("accent", null), Accent.BLUE),
             highlightRelated = prefs.getBoolean("highlight_related", true),
             highlightSame = prefs.getBoolean("highlight_same", true),
+            sound = prefs.getBoolean("sound", true),
+            vibration = prefs.getBoolean("vibration", true),
         )
 
         private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =
