@@ -33,6 +33,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.material3.FilterChip
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -48,6 +51,8 @@ import com.valenciaj.sudoku.core.Difficulty
 import com.valenciaj.sudoku.core.Game
 import com.valenciaj.sudoku.core.Grid
 import com.valenciaj.sudoku.core.Hint
+import com.valenciaj.sudoku.core.Mode
+import com.valenciaj.sudoku.core.TimeAttack
 import com.valenciaj.sudoku.core.Stats
 
 @Composable
@@ -79,7 +84,9 @@ fun SudokuApp(vm: GameViewModel) {
                 today = vm.today,
                 onDaily = vm::playDaily,
                 onContinue = vm::continueGame,
-                onSelect = vm::newGame,
+                mode = state.menuMode,
+                onMode = vm::selectMenuMode,
+                onSelect = { vm.newGame(it, state.menuMode) },
                 onShow = vm::show,
             )
         }
@@ -102,6 +109,8 @@ fun MenuScreen(
     today: Long,
     onDaily: () -> Unit,
     onContinue: () -> Unit,
+    mode: Mode,
+    onMode: (Mode) -> Unit,
     onSelect: (Difficulty) -> Unit,
     onShow: (Screen) -> Unit,
 ) {
@@ -132,10 +141,26 @@ fun MenuScreen(
 
         if (saved != null && saved.dailyDay == null) {
             FilledTonalButton(onClick = onContinue, Modifier.fillMaxWidth().height(56.dp)) {
-                Text(stringResource(R.string.continue_game, saved.puzzle.difficulty.text()), fontSize = 18.sp)
+                val label = saved.puzzle.difficulty.text().let {
+                    if (saved.mode == Mode.CLASSIC) it else "${saved.mode.text()} · $it"
+                }
+                Text(stringResource(R.string.continue_game, label), fontSize = 18.sp)
             }
         }
         Text(stringResource(R.string.new_game), style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Mode.entries.forEach { m ->
+                FilterChip(selected = m == mode, onClick = { onMode(m) }, label = { Text(m.text()) })
+            }
+        }
+        when (mode) {
+            Mode.TIME_ATTACK -> Text(
+                stringResource(R.string.mode_time_attack_info, TimeAttack.PENALTY_SECONDS.toInt()),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Mode.KILLER -> Text(stringResource(R.string.mode_killer_info), style = MaterialTheme.typography.bodySmall)
+            Mode.CLASSIC -> Unit
+        }
         Difficulty.entries.forEach { level ->
             Button(onClick = { onSelect(level) }, Modifier.fillMaxWidth().height(56.dp)) {
                 Text(level.text(), fontSize = 18.sp)
@@ -160,7 +185,11 @@ fun GameScreen(game: Game, state: UiState, settings: Settings, actions: GameActi
             TextButton(onClick = { actions.show(Screen.MENU) }) { Text(stringResource(R.string.back_menu)) }
             Text(
                 game.puzzle.difficulty.text().let {
-                    if (game.dailyDay != null) stringResource(R.string.daily_prefix, it) else it
+                    when {
+                        game.dailyDay != null -> stringResource(R.string.daily_prefix, it)
+                        game.mode != Mode.CLASSIC -> "${game.mode.text()} · $it"
+                        else -> it
+                    }
                 },
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.titleLarge,
@@ -168,10 +197,13 @@ fun GameScreen(game: Game, state: UiState, settings: Settings, actions: GameActi
             Text(stringResource(R.string.mistakes, game.mistakes), style = MaterialTheme.typography.titleMedium)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // En contrarreloj se muestra el tiempo que queda (en rojo el último minuto).
+            val remaining = game.remainingSeconds
             Text(
-                formatTime(game.elapsedSeconds),
+                if (remaining != null) "⏳ ${formatTime(remaining)}" else formatTime(game.elapsedSeconds),
                 Modifier.weight(1f).padding(start = 12.dp),
                 style = MaterialTheme.typography.titleLarge,
+                color = if (remaining != null && remaining < 60) MaterialTheme.colorScheme.error else Color.Unspecified,
             )
             TextButton(onClick = actions::togglePause) { Text(stringResource(if (state.paused) R.string.resume else R.string.pause)) }
         }
@@ -200,6 +232,18 @@ fun GameScreen(game: Game, state: UiState, settings: Settings, actions: GameActi
             }
         }
         NumberPad(game, actions::input)
+    }
+
+    if (game.isLost) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.time_up_title)) },
+            text = { Text(stringResource(R.string.time_up_text, game.puzzle.difficulty.text())) },
+            confirmButton = {
+                Button(onClick = { actions.newGame(game.puzzle.difficulty) }) { Text(stringResource(R.string.retry)) }
+            },
+            dismissButton = { TextButton(onClick = { actions.show(Screen.MENU) }) { Text(stringResource(R.string.menu)) } },
+        )
     }
 
     if (game.isSolved) {
@@ -261,6 +305,12 @@ internal fun formatTime(seconds: Long): String {
 private fun Board(game: Game, selected: Int?, hintCell: Int?, settings: Settings, onSelect: (Int) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val selectedValue = if (settings.highlightSame) selected?.let { game.values[it] } ?: 0 else 0
+    val cages = game.puzzle.cages
+    // Killer: a qué jaula pertenece cada casilla y en qué casilla se escribe la suma.
+    val cageOf = remember(cages) {
+        IntArray(Grid.CELLS) { -1 }.also { owner -> cages.forEachIndexed { i, c -> c.cells.forEach { owner[it] = i } } }
+    }
+    val sumCells = remember(cages) { cages.associate { it.cells.min() to it.sum } }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             for (r in 0 until 9) {
@@ -297,12 +347,55 @@ private fun Board(game: Game, selected: Int?, hintCell: Int?, settings: Settings
                             } else if (game.notes[cell] != 0) {
                                 Notes(game, cell, selectedValue, colors.onSurfaceVariant, colors.primary)
                             }
+                            sumCells[cell]?.let { sum ->
+                                Text(
+                                    sum.toString(),
+                                    Modifier.align(Alignment.TopStart).padding(start = 3.dp, top = 1.dp),
+                                    fontSize = 8.sp,
+                                    lineHeight = 8.sp,
+                                    color = colors.onSurface,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
                         }
                     }
                 }
             }
         }
         GridLines(colors.outline, colors.onSurface)
+        if (cages.isNotEmpty()) CageLines(cageOf, colors.onSurfaceVariant)
+    }
+}
+
+/** Bordes punteados de las jaulas del modo Killer, un poco hacia dentro de cada casilla. */
+@Composable
+private fun CageLines(cageOf: IntArray, color: Color) {
+    Canvas(Modifier.fillMaxSize()) {
+        val step = size.width / 9
+        val inset = 3.dp.toPx()
+        val effect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))
+        val w = 1.dp.toPx()
+        fun line(x1: Float, y1: Float, x2: Float, y2: Float) =
+            drawLine(color, Offset(x1, y1), Offset(x2, y2), w, pathEffect = effect)
+        for (cell in 0 until Grid.CELLS) {
+            val r = Grid.row(cell)
+            val c = Grid.col(cell)
+            val x0 = c * step
+            val y0 = r * step
+            val same = { rr: Int, cc: Int -> rr in 0..8 && cc in 0..8 && cageOf[rr * 9 + cc] == cageOf[cell] }
+            val top = !same(r - 1, c)
+            val bottom = !same(r + 1, c)
+            val left = !same(r, c - 1)
+            val right = !same(r, c + 1)
+            val l = x0 + if (left) inset else 0f
+            val rt = x0 + step - if (right) inset else 0f
+            val t = y0 + if (top) inset else 0f
+            val b = y0 + step - if (bottom) inset else 0f
+            if (top) line(l, t, rt, t)
+            if (bottom) line(l, b, rt, b)
+            if (left) line(l, t, l, b)
+            if (right) line(rt, t, rt, b)
+        }
     }
 }
 

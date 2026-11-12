@@ -6,6 +6,7 @@ import com.valenciaj.sudoku.R
 import com.valenciaj.sudoku.core.Achievement
 import com.valenciaj.sudoku.core.Difficulty
 import com.valenciaj.sudoku.core.Hint
+import com.valenciaj.sudoku.core.Mode
 
 /** Textos traducidos de los conceptos del motor (que no conoce los idiomas). */
 
@@ -56,6 +57,8 @@ private val achievementRes = mapOf(
     Achievement.DAILY_FIRST to (R.string.ach_daily_first_title to R.string.ach_daily_first_desc),
     Achievement.STREAK_7 to (R.string.ach_streak_7_title to R.string.ach_streak_7_desc),
     Achievement.STREAK_30 to (R.string.ach_streak_30_title to R.string.ach_streak_30_desc),
+    Achievement.TIME_ATTACK to (R.string.ach_time_attack_title to R.string.ach_time_attack_desc),
+    Achievement.KILLER to (R.string.ach_killer_title to R.string.ach_killer_desc),
 )
 
 @Composable
@@ -63,3 +66,12 @@ fun Achievement.title(): String = stringResource(achievementRes.getValue(this).f
 
 @Composable
 fun Achievement.description(): String = stringResource(achievementRes.getValue(this).second)
+
+@Composable
+fun Mode.text(): String = stringResource(
+    when (this) {
+        Mode.CLASSIC -> R.string.mode_classic
+        Mode.TIME_ATTACK -> R.string.mode_time_attack
+        Mode.KILLER -> R.string.mode_killer
+    },
+)

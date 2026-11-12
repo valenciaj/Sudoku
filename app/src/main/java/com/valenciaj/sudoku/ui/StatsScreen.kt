@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.valenciaj.sudoku.R
 import androidx.compose.ui.res.stringResource
 import com.valenciaj.sudoku.core.Difficulty
+import com.valenciaj.sudoku.core.Mode
 import com.valenciaj.sudoku.core.Stats
 
 @Composable
@@ -31,9 +32,10 @@ fun StatsScreen(stats: Stats, today: Long, onBack: () -> Unit) {
             StatRow(stringResource(R.string.current_streak), stringResource(R.string.days, stats.daily.currentStreak(today)))
             StatRow(stringResource(R.string.best_streak), stringResource(R.string.days, stats.daily.bestStreak))
         }
-        Difficulty.entries.forEach { level ->
-            val s = stats[level]
-            StatCard(level.text()) {
+        val cards = Difficulty.entries.map { it.text() to stats[it] } +
+            listOf(Mode.TIME_ATTACK, Mode.KILLER).map { it.text() to stats.mode(it) }
+        cards.forEach { (title, s) ->
+            StatCard(title) {
                 StatRow(stringResource(R.string.played), s.played.toString())
                 StatRow(stringResource(R.string.won), stringResource(R.string.won_value, s.won, s.winRate))
                 StatRow(stringResource(R.string.perfect), s.perfect.toString())

@@ -29,17 +29,24 @@ data class DailyStats(
 
 /** Estadísticas de todos los niveles. Inmutable. */
 data class Stats(
+    /** Modo clásico, por nivel. */
     val levels: Map<Difficulty, LevelStats> = emptyMap(),
     val daily: DailyStats = DailyStats(),
+    /** Otros modos (Contrarreloj, Killer), todos los niveles juntos. */
+    val modes: Map<Mode, LevelStats> = emptyMap(),
 ) {
 
     operator fun get(level: Difficulty) = levels[level] ?: LevelStats()
 
-    val totalWon get() = levels.values.sumOf { it.won }
+    fun mode(mode: Mode) = modes[mode] ?: LevelStats()
 
-    fun recordStart(level: Difficulty) = update(level) { it.copy(played = it.played + 1) }
+    val totalWon get() = levels.values.sumOf { it.won } + modes.values.sumOf { it.won }
 
-    fun recordWin(level: Difficulty, seconds: Long, mistakes: Int, hints: Int = 0) = update(level) {
+    fun recordStart(level: Difficulty, mode: Mode = Mode.CLASSIC) =
+        update(level, mode) { it.copy(played = it.played + 1) }
+
+    fun recordWin(level: Difficulty, seconds: Long, mistakes: Int, hints: Int = 0, mode: Mode = Mode.CLASSIC) =
+        update(level, mode) {
         it.copy(
             won = it.won + 1,
             perfect = it.perfect + if (mistakes == 0) 1 else 0,
@@ -68,38 +75,37 @@ data class Stats(
      * con la racha del dispositivo que jugó más recientemente.
      */
     operator fun plus(other: Stats): Stats {
-        val merged = (levels.keys + other.levels.keys).associateWith { level ->
-            val a = this[level]
-            val b = other[level]
-            LevelStats(
-                played = a.played + b.played,
-                won = a.won + b.won,
-                perfect = a.perfect + b.perfect,
-                bestSeconds = listOfNotNull(a.bestSeconds, b.bestSeconds).minOrNull(),
-                totalWonSeconds = a.totalWonSeconds + b.totalWonSeconds,
-                noHints = a.noHints + b.noHints,
-            )
-        }
+        fun add(a: LevelStats, b: LevelStats) = LevelStats(
+            played = a.played + b.played,
+            won = a.won + b.won,
+            perfect = a.perfect + b.perfect,
+            bestSeconds = listOfNotNull(a.bestSeconds, b.bestSeconds).minOrNull(),
+            totalWonSeconds = a.totalWonSeconds + b.totalWonSeconds,
+            noHints = a.noHints + b.noHints,
+        )
+        val merged = (levels.keys + other.levels.keys).associateWith { add(this[it], other[it]) }
+        val mergedModes = (modes.keys + other.modes.keys).associateWith { add(mode(it), other.mode(it)) }
         val latest = maxOf(daily, other.daily, compareBy { it.lastDay ?: Long.MIN_VALUE })
         val d = latest.copy(
             completed = daily.completed + other.daily.completed,
             bestStreak = maxOf(daily.bestStreak, other.daily.bestStreak),
         )
-        return Stats(merged, d)
+        return Stats(merged, d, mergedModes)
     }
 
-    private fun update(level: Difficulty, f: (LevelStats) -> LevelStats) =
-        copy(levels = levels + (level to f(this[level])))
+    private fun update(level: Difficulty, mode: Mode, f: (LevelStats) -> LevelStats) =
+        if (mode == Mode.CLASSIC) copy(levels = levels + (level to f(this[level])))
+        else copy(modes = modes + (mode to f(this.mode(mode))))
 
     /**
      * Una línea por nivel: NIVEL;jugadas;ganadas;perfectas;mejor;total;sinPistas
      * y una línea DAILY;completados;racha;mejorRacha;último.
      */
     fun encode(): String {
-        val lines = levels.entries.map { (level, s) ->
-            listOf(level.name, s.played, s.won, s.perfect, s.bestSeconds ?: -1, s.totalWonSeconds, s.noHints)
-                .joinToString(";")
-        }
+        fun line(name: String, s: LevelStats) =
+            listOf(name, s.played, s.won, s.perfect, s.bestSeconds ?: -1, s.totalWonSeconds, s.noHints).joinToString(";")
+        val lines = levels.entries.map { (level, s) -> line(level.name, s) } +
+            modes.entries.map { (mode, s) -> line(MODE_PREFIX + mode.name, s) }
         val d = daily
         val dailyLine = listOf(DAILY, d.completed, d.streak, d.bestStreak, d.lastDay ?: -1).joinToString(";")
         return (lines + dailyLine).joinToString("\n")
@@ -107,18 +113,20 @@ data class Stats(
 
     companion object {
         private const val DAILY = "DAILY"
+        private const val MODE_PREFIX = "MODE_"
 
         fun decode(text: String?): Stats {
             if (text.isNullOrBlank()) return Stats()
             var daily = DailyStats()
             val levels = mutableMapOf<Difficulty, LevelStats>()
+            val modes = mutableMapOf<Mode, LevelStats>()
             for (line in text.lines()) {
                 runCatching {
                     val p = line.split(";")
                     if (p[0] == DAILY) {
                         daily = DailyStats(p[1].toInt(), p[2].toInt(), p[3].toInt(), p[4].toLong().takeIf { it >= 0 })
                     } else {
-                        levels[Difficulty.valueOf(p[0])] = LevelStats(
+                        val stats = LevelStats(
                             played = p[1].toInt(),
                             won = p[2].toInt(),
                             perfect = p[3].toInt(),
@@ -126,10 +134,12 @@ data class Stats(
                             totalWonSeconds = p[5].toLong(),
                             noHints = p.getOrNull(6)?.toInt() ?: 0,
                         )
+                        if (p[0].startsWith(MODE_PREFIX)) modes[Mode.valueOf(p[0].removePrefix(MODE_PREFIX))] = stats
+                        else levels[Difficulty.valueOf(p[0])] = stats
                     }
                 }
             }
-            return Stats(levels, daily)
+            return Stats(levels, daily, modes)
         }
     }
 }
@@ -146,6 +156,8 @@ enum class Achievement(val title: String, val description: String, val unlocked:
     DAILY_FIRST("Cita diaria", "Completa un sudoku diario", { it.daily.completed >= 1 }),
     STREAK_7("Constante", "Racha de 7 días con el sudoku diario", { it.daily.bestStreak >= 7 }),
     STREAK_30("Imparable", "Racha de 30 días con el sudoku diario", { it.daily.bestStreak >= 30 }),
+    TIME_ATTACK("Contra el reloj", "Gana una partida contrarreloj", { it.mode(Mode.TIME_ATTACK).won > 0 }),
+    KILLER("Asesino", "Resuelve un sudoku Killer", { it.mode(Mode.KILLER).won > 0 }),
     ;
 
     fun isUnlocked(stats: Stats) = unlocked(stats)

@@ -35,3 +35,4 @@ Cada push compila el APK en GitHub Actions y lo deja como artefacto descargable.
 4. ✅ Estadísticas por nivel y preparación para Google Play (ver [docs/google-play.md](docs/google-play.md)).
 5. ✅ Mejoras: pistas, sudoku diario, logros y rachas, tema oscuro y colores, resaltado configurable, icono y capturas.
 6. ✅ Inglés y español, sonidos y vibración, copia en la nube con GitHub (ver [docs/nube-github.md](docs/nube-github.md)).
+7. ✅ Modos de juego: Contrarreloj (tiempo límite, cada error resta 30 s) y Killer (jaulas con sumas).
