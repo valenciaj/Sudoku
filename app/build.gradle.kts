@@ -37,6 +37,14 @@ android {
     val storeFilePath = signingValue("storeFile", "SUDOKU_KEYSTORE_FILE")
 
     signingConfigs {
+        // Clave de pruebas fija (no es secreta): así el APK de GitHub se puede actualizar
+        // instalando encima sin perder las partidas.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (storeFilePath != null) {
             create("release") {
                 storeFile = rootProject.file(storeFilePath)
