@@ -60,3 +60,24 @@ jobs:
         with:
           name: sudoku-screenshots
           path: app/src/test/snapshots/images/*.png
+
+  # Publica el APK en la Release "ultima" para instalarlo directamente en el móvil.
+  publish-apk:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: sudoku-debug-apk
+      - name: Publicar en la Release "ultima"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mv *.apk sudoku.apk
+          gh release delete ultima --yes --cleanup-tag || true
+          gh release create ultima sudoku.apk --target "$GITHUB_SHA" --title "Última versión" \
+            --notes "APK para instalar en el móvil. Ver docs/instalar.md."
