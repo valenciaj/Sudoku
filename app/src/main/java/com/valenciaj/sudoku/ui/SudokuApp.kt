@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -41,6 +44,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.valenciaj.sudoku.R
 import androidx.compose.ui.res.stringResource
@@ -61,6 +70,7 @@ fun SudokuApp(vm: GameViewModel) {
     val stats by vm.stats.collectAsState()
     val settings by vm.settings.collectAsState()
     val cloud by vm.cloud.collectAsState()
+    val tutorial by vm.tutorial.collectAsState()
 
     // Para el cronómetro y guarda la partida cuando la app se va a segundo plano.
     LifecycleResumeEffect(vm) {
@@ -70,13 +80,18 @@ fun SudokuApp(vm: GameViewModel) {
 
     AppSurface {
         val game = state.game
-        if (state.screen != Screen.MENU) BackHandler { vm.show(Screen.MENU) }
+        if (state.screen != Screen.MENU) {
+            BackHandler {
+                if (state.screen == Screen.TUTORIAL && tutorial.technique != null) vm.openLesson(null) else vm.show(Screen.MENU)
+            }
+        }
         when {
             state.loading -> CircularProgressIndicator()
             state.screen == Screen.STATS -> StatsScreen(stats, vm.today, onBack = { vm.show(Screen.MENU) })
             state.screen == Screen.ACHIEVEMENTS -> AchievementsScreen(stats, onBack = { vm.show(Screen.MENU) })
             state.screen == Screen.SETTINGS ->
                 SettingsScreen(settings, vm::updateSettings, cloud, vm, onBack = { vm.show(Screen.MENU) })
+            state.screen == Screen.TUTORIAL -> TutorialScreen(tutorial, vm, onBack = { vm.show(Screen.MENU) })
             state.screen == Screen.GAME && game != null -> GameScreen(game, state, settings, vm)
             else -> MenuScreen(
                 saved = state.saved,
@@ -115,7 +130,7 @@ fun MenuScreen(
     onShow: (Screen) -> Unit,
 ) {
     Column(
-        Modifier.widthIn(max = 360.dp).verticalScroll(rememberScrollState()),
+        Modifier.widthIn(max = 420.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -166,6 +181,9 @@ fun MenuScreen(
                 Text(level.text(), fontSize = 18.sp)
             }
         }
+        OutlinedButton(onClick = { onShow(Screen.TUTORIAL) }, Modifier.fillMaxWidth()) {
+            Text("🎓 " + stringResource(R.string.tutorial))
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             TextButton(onClick = { onShow(Screen.STATS) }) { Text(stringResource(R.string.stats)) }
             TextButton(onClick = { onShow(Screen.ACHIEVEMENTS) }) { Text(stringResource(R.string.achievements)) }
@@ -176,64 +194,108 @@ fun MenuScreen(
 
 @Composable
 fun GameScreen(game: Game, state: UiState, settings: Settings, actions: GameActions) {
-    Column(
-        Modifier.widthIn(max = 480.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { actions.show(Screen.MENU) }) { Text(stringResource(R.string.back_menu)) }
-            Text(
-                game.puzzle.difficulty.text().let {
-                    when {
-                        game.dailyDay != null -> stringResource(R.string.daily_prefix, it)
-                        game.mode != Mode.CLASSIC -> "${game.mode.text()} · $it"
-                        else -> it
-                    }
-                },
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Text(stringResource(R.string.mistakes, game.mistakes), style = MaterialTheme.typography.titleMedium)
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            // En contrarreloj se muestra el tiempo que queda (en rojo el último minuto).
-            val remaining = game.remainingSeconds
-            Text(
-                if (remaining != null) "⏳ ${formatTime(remaining)}" else formatTime(game.elapsedSeconds),
-                Modifier.weight(1f).padding(start = 12.dp),
-                style = MaterialTheme.typography.titleLarge,
-                color = if (remaining != null && remaining < 60) MaterialTheme.colorScheme.error else Color.Unspecified,
-            )
-            TextButton(onClick = actions::togglePause) { Text(stringResource(if (state.paused) R.string.resume else R.string.pause)) }
-        }
-        Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
-            if (state.paused) {
-                Text(stringResource(R.string.paused), style = MaterialTheme.typography.headlineMedium)
-            } else {
-                Board(game, state.selected, state.hint?.cell, settings, actions::select)
-            }
-        }
-        val hint = state.hint
-        if (hint != null) {
-            HintCard(hint, actions)
-        } else {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                val mod = Modifier.weight(1f)
-                val pad = PaddingValues(horizontal = 4.dp)
-                OutlinedButton(actions::undo, mod, enabled = game.canUndo, contentPadding = pad) { Text(stringResource(R.string.undo)) }
-                OutlinedButton({ actions.input(0) }, mod, contentPadding = pad) { Text(stringResource(R.string.erase)) }
-                if (state.notesMode) {
-                    Button(actions::toggleNotesMode, mod, contentPadding = pad) { Text(stringResource(R.string.notes_on)) }
-                } else {
-                    OutlinedButton(actions::toggleNotesMode, mod, contentPadding = pad) { Text(stringResource(R.string.notes)) }
+    // Tablet o móvil en horizontal: tablero a la izquierda y controles a la derecha.
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        if (maxWidth > maxHeight && maxWidth >= 560.dp) {
+            val panel = (maxWidth * 0.4f).coerceIn(260.dp, 400.dp)
+            val gap = 24.dp
+            val board = minOf(maxHeight, maxWidth - panel - gap)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(gap),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(board)) { BoardArea(game, state, settings, actions) }
+                Column(
+                    Modifier.width(panel).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    GameHeader(game, state, actions)
+                    GameControls(game, state, actions)
+                    NumberGrid(game, actions::input)
                 }
-                OutlinedButton(actions::hint, mod, contentPadding = pad) { Text(stringResource(R.string.hint)) }
+            }
+        } else {
+            Column(
+                // En tablets en vertical el tablero crece, pero sin pasarse del alto disponible.
+                Modifier.widthIn(max = minOf(720.dp, maxHeight * 0.62f).coerceAtLeast(320.dp)),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                GameHeader(game, state, actions)
+                Box(Modifier.fillMaxWidth().aspectRatio(1f)) { BoardArea(game, state, settings, actions) }
+                GameControls(game, state, actions)
+                NumberPad(game, actions::input)
             }
         }
-        NumberPad(game, actions::input)
     }
+    GameDialogs(game, state, actions)
+}
 
+@Composable
+private fun GameHeader(game: Game, state: UiState, actions: GameActions) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        TextButton(onClick = { actions.show(Screen.MENU) }) { Text(stringResource(R.string.back_menu)) }
+        Text(
+            game.puzzle.difficulty.text().let {
+                when {
+                    game.dailyDay != null -> stringResource(R.string.daily_prefix, it)
+                    game.mode != Mode.CLASSIC -> "${game.mode.text()} · $it"
+                    else -> it
+                }
+            },
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Text(stringResource(R.string.mistakes, game.mistakes), style = MaterialTheme.typography.titleMedium)
+    }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // En contrarreloj se muestra el tiempo que queda (en rojo el último minuto).
+        val remaining = game.remainingSeconds
+        Text(
+            if (remaining != null) "⏳ ${formatTime(remaining)}" else formatTime(game.elapsedSeconds),
+            Modifier.weight(1f).padding(start = 12.dp),
+            style = MaterialTheme.typography.titleLarge,
+            color = if (remaining != null && remaining < 60) MaterialTheme.colorScheme.error else Color.Unspecified,
+        )
+        TextButton(onClick = actions::togglePause) { Text(stringResource(if (state.paused) R.string.resume else R.string.pause)) }
+    }
+}
+
+@Composable
+private fun BoardArea(game: Game, state: UiState, settings: Settings, actions: GameActions) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        if (state.paused) {
+            Text(stringResource(R.string.paused), style = MaterialTheme.typography.headlineMedium)
+        } else {
+            Board(game, state.selected, state.hint?.cell, settings, actions::select)
+        }
+    }
+}
+
+@Composable
+private fun GameControls(game: Game, state: UiState, actions: GameActions) {
+    val hint = state.hint
+    if (hint != null) {
+        HintCard(hint, actions)
+    } else {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val mod = Modifier.weight(1f)
+            val pad = PaddingValues(horizontal = 4.dp)
+            OutlinedButton(actions::undo, mod, enabled = game.canUndo, contentPadding = pad) { Text(stringResource(R.string.undo)) }
+            OutlinedButton({ actions.input(0) }, mod, contentPadding = pad) { Text(stringResource(R.string.erase)) }
+            if (state.notesMode) {
+                Button(actions::toggleNotesMode, mod, contentPadding = pad) { Text(stringResource(R.string.notes_on)) }
+            } else {
+                OutlinedButton(actions::toggleNotesMode, mod, contentPadding = pad) { Text(stringResource(R.string.notes)) }
+            }
+            OutlinedButton(actions::hint, mod, contentPadding = pad) { Text(stringResource(R.string.hint)) }
+        }
+    }
+}
+
+@Composable
+private fun GameDialogs(game: Game, state: UiState, actions: GameActions) {
     if (game.isLost) {
         AlertDialog(
             onDismissRequest = {},
@@ -311,6 +373,17 @@ private fun Board(game: Game, selected: Int?, hintCell: Int?, settings: Settings
         IntArray(Grid.CELLS) { -1 }.also { owner -> cages.forEachIndexed { i, c -> c.cells.forEach { owner[it] = i } } }
     }
     val sumCells = remember(cages) { cages.associate { it.cells.min() to it.sum } }
+    val scale = settings.digitSize.scale
+    val dark = colors.background.luminance() < 0.5f
+    // Daltonismo (paleta Okabe-Ito): azul para lo escrito, bermellón tachado para los errores.
+    val wrongColor = if (settings.colorBlind) Color(0xFFD55E00) else colors.error
+    val userColor = when {
+        !settings.colorBlind -> colors.primary
+        dark -> Color(0xFF56B4E9)
+        else -> Color(0xFF0072B2)
+    }
+    val context = LocalContext.current
+    val selectLabel = stringResource(R.string.cell_select)
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             for (r in 0 until 9) {
@@ -328,24 +401,31 @@ private fun Board(game: Game, selected: Int?, hintCell: Int?, settings: Settings
                             related -> colors.surfaceVariant
                             else -> colors.surface
                         }
+                        val wrong = game.isWrong(cell)
                         val textColor = when {
-                            game.isWrong(cell) -> colors.error
+                            wrong -> wrongColor
                             game.isGiven(cell) -> colors.onSurface
-                            else -> colors.primary
+                            else -> userColor
                         }
+                        val description = cellDescription(context, game, cell, cageOf, cages)
                         Box(
-                            Modifier.weight(1f).fillMaxSize().background(background).clickable { onSelect(cell) },
+                            Modifier.weight(1f).fillMaxSize().background(background).clickable { onSelect(cell) }
+                                .clearAndSetSemantics {
+                                    contentDescription = description
+                                    onClick(label = selectLabel) { onSelect(cell); true }
+                                },
                             contentAlignment = Alignment.Center,
                         ) {
                             if (value != 0) {
                                 Text(
                                     value.toString(),
                                     color = textColor,
-                                    fontSize = 22.sp,
+                                    fontSize = 22.sp * scale,
                                     fontWeight = if (game.isGiven(cell)) FontWeight.Bold else FontWeight.Normal,
+                                    textDecoration = if (wrong && settings.colorBlind) TextDecoration.LineThrough else null,
                                 )
                             } else if (game.notes[cell] != 0) {
-                                Notes(game, cell, selectedValue, colors.onSurfaceVariant, colors.primary)
+                                Notes(game, cell, selectedValue, colors.onSurfaceVariant, colors.primary, scale)
                             }
                             sumCells[cell]?.let { sum ->
                                 Text(
@@ -401,7 +481,7 @@ private fun CageLines(cageOf: IntArray, color: Color) {
 
 /** Notas a lápiz: mini cuadrícula 3x3. La nota igual al número elegido se resalta. */
 @Composable
-private fun Notes(game: Game, cell: Int, highlight: Int, color: Color, highlightColor: Color) {
+private fun Notes(game: Game, cell: Int, highlight: Int, color: Color, highlightColor: Color, scale: Float) {
     Column(Modifier.fillMaxSize().padding(1.dp)) {
         for (r in 0 until 3) {
             Row(Modifier.weight(1f)) {
@@ -414,8 +494,8 @@ private fun Notes(game: Game, cell: Int, highlight: Int, color: Color, highlight
                                 d.toString(),
                                 color = if (hl) highlightColor else color,
                                 fontWeight = if (hl) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 9.sp,
-                                lineHeight = 9.sp,
+                                fontSize = 9.sp * minOf(scale, 1.2f),
+                                lineHeight = 9.sp * minOf(scale, 1.2f),
                             )
                         }
                     }
@@ -425,8 +505,32 @@ private fun Notes(game: Game, cell: Int, highlight: Int, color: Color, highlight
     }
 }
 
+/** Texto que lee TalkBack para una casilla: fila, columna, contenido y jaula. */
+private fun cellDescription(
+    context: android.content.Context,
+    game: Game,
+    cell: Int,
+    cageOf: IntArray,
+    cages: List<com.valenciaj.sudoku.core.Cage>,
+): String {
+    val value = game.values[cell]
+    var content = when {
+        value != 0 && game.isGiven(cell) -> context.getString(R.string.cell_given, value)
+        value != 0 && game.isWrong(cell) -> context.getString(R.string.cell_wrong, value)
+        value != 0 -> value.toString()
+        game.notes[cell] != 0 -> context.getString(
+            R.string.cell_notes,
+            (1..9).filter { game.hasNote(cell, it) }.joinToString(" "),
+        )
+        else -> context.getString(R.string.cell_empty)
+    }
+    val cage = cageOf[cell]
+    if (cage >= 0) content = context.getString(R.string.cell_cage, content, cages[cage].sum)
+    return context.getString(R.string.cell_desc, Grid.row(cell) + 1, Grid.col(cell) + 1, content)
+}
+
 @Composable
-private fun GridLines(thin: Color, thick: Color) {
+internal fun GridLines(thin: Color, thick: Color) {
     Canvas(Modifier.fillMaxSize()) {
         val step = size.width / 9
         for (i in 0..9) {
@@ -436,6 +540,26 @@ private fun GridLines(thin: Color, thick: Color) {
             val p = i * step
             drawLine(color, Offset(p, 0f), Offset(p, size.height), width)
             drawLine(color, Offset(0f, p), Offset(size.width, p), width)
+        }
+    }
+}
+
+/** Teclado 3x3 para el panel lateral en horizontal. */
+@Composable
+private fun NumberGrid(game: Game, onInput: (Int) -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (r in 0 until 3) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (c in 0 until 3) {
+                    val d = r * 3 + c + 1
+                    FilledTonalButton(
+                        onClick = { onInput(d) },
+                        modifier = Modifier.weight(1f).height(64.dp),
+                        enabled = game.placedCount(d) < 9,
+                        contentPadding = PaddingValues(0.dp),
+                    ) { Text(d.toString(), fontSize = 26.sp) }
+                }
+            }
         }
     }
 }
@@ -452,6 +576,22 @@ private fun NumberPad(game: Game, onInput: (Int) -> Unit) {
                 enabled = !done,
                 contentPadding = PaddingValues(0.dp),
             ) { Text(d.toString(), fontSize = 22.sp) }
+        }
+    }
+}
+
+/** Lista de tarjetas: una columna en móvil, dos en pantallas anchas (tablets). */
+@Composable
+internal fun <T> AdaptiveList(items: List<T>, item: @Composable (T) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val columns = if (maxWidth >= 640.dp) 2 else 1
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items.chunked(columns).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { Box(Modifier.weight(1f)) { item(it) } }
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
         }
     }
 }

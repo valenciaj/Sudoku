@@ -23,7 +23,7 @@ import com.valenciaj.sudoku.core.Stats
 @Composable
 fun StatsScreen(stats: Stats, today: Long, onBack: () -> Unit) {
     Column(
-        Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState()),
+        Modifier.widthIn(max = 960.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ScreenHeader(stringResource(R.string.stats), onBack)
@@ -34,7 +34,7 @@ fun StatsScreen(stats: Stats, today: Long, onBack: () -> Unit) {
         }
         val cards = Difficulty.entries.map { it.text() to stats[it] } +
             listOf(Mode.TIME_ATTACK, Mode.KILLER).map { it.text() to stats.mode(it) }
-        cards.forEach { (title, s) ->
+        AdaptiveList(cards) { (title, s) ->
             StatCard(title) {
                 StatRow(stringResource(R.string.played), s.played.toString())
                 StatRow(stringResource(R.string.won), stringResource(R.string.won_value, s.won, s.winRate))

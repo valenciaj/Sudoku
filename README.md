@@ -36,3 +36,5 @@ Cada push compila el APK en GitHub Actions y lo deja como artefacto descargable.
 5. ✅ Mejoras: pistas, sudoku diario, logros y rachas, tema oscuro y colores, resaltado configurable, icono y capturas.
 6. ✅ Inglés y español, sonidos y vibración, copia en la nube con GitHub (ver [docs/nube-github.md](docs/nube-github.md)).
 7. ✅ Modos de juego: Contrarreloj (tiempo límite, cada error resta 30 s) y Killer (jaulas con sumas).
+8. ✅ Tutorial de técnicas con ejemplos reales, widget del sudoku diario con recordatorio, y accesibilidad (TalkBack, números grandes, colores para daltonismo).
+9. ✅ Tablets: en horizontal el tablero va a la izquierda y los controles a la derecha; listas a dos columnas; capturas de tablet de 7" y 10".

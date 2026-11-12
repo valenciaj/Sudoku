@@ -15,8 +15,8 @@ android {
         applicationId = "com.valenciaj.sudoku"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 4
+        versionName = "1.3.0"
 
         // Client ID de la OAuth App de GitHub (es público, no es un secreto).
         // Se pone en gradle.properties (githubClientId=...) o en la variable SUDOKU_GITHUB_CLIENT_ID.
@@ -74,6 +74,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.work)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
