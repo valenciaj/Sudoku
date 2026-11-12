@@ -36,6 +36,7 @@ import androidx.compose.material3.TextButton
 import com.valenciaj.sudoku.R
 import android.Manifest
 import android.os.Build
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import java.text.DateFormat
@@ -162,12 +163,17 @@ private fun DigitSize.text(): String = stringResource(
 /** Recordatorio diario: en Android 13+ hay que pedir permiso de notificaciones. */
 @Composable
 private fun ReminderSection(settings: Settings, onChange: (Settings) -> Unit) {
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) onChange(settings.copy(reminder = true))
+    // Sin registro de resultados (capturas de pantalla) no se puede pedir el permiso.
+    val permission = if (LocalActivityResultRegistryOwner.current != null) {
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) onChange(settings.copy(reminder = true))
+        }
+    } else {
+        null
     }
     Text(stringResource(R.string.reminder), style = MaterialTheme.typography.titleMedium)
     SwitchRow(stringResource(R.string.reminder_switch), settings.reminder) { on ->
-        if (on && Build.VERSION.SDK_INT >= 33) {
+        if (on && Build.VERSION.SDK_INT >= 33 && permission != null) {
             permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             onChange(settings.copy(reminder = on))
