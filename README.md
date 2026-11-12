@@ -33,3 +33,4 @@ Cada push compila el APK en GitHub Actions y lo deja como artefacto descargable.
 2. ✅ Motor: generador con solución única y 4 niveles.
 3. ✅ Juego: notas a lápiz, deshacer, cronómetro con pausa, guardar y continuar partida.
 4. ✅ Estadísticas por nivel y preparación para Google Play (ver [docs/google-play.md](docs/google-play.md)).
+5. ✅ Mejoras: pistas, sudoku diario, logros y rachas, tema oscuro y colores, resaltado configurable, icono y capturas.

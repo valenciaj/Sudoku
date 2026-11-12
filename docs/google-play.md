@@ -38,7 +38,7 @@ Cada build deja el `.aab` firmado en el artefacto `sudoku-release-aab`.
 1. Cuenta de desarrollador (pago único de 25 $).
 2. Crear app → nombre "Sudoku", idioma español, gratuita.
 3. Activar **Play App Signing** y subir el `.aab` a "Prueba interna".
-4. Rellenar la ficha (textos abajo), capturas, icono 512x512 y gráfico 1024x500.
+4. Rellenar la ficha (textos abajo). Gráficos listos en `play/`: icono 512x512 y gráfico destacado 1024x500 (se regeneran con `python3 tools/make_icons.py`). Capturas: artefacto `sudoku-screenshots` de GitHub Actions (o `./gradlew :app:recordPaparazziDebug`).
 5. Cuestionarios: clasificación de contenido (apta para todos), "Seguridad de los datos" (no se recogen datos), público objetivo.
 6. Política de privacidad: publicar el texto de abajo (por ejemplo con GitHub Pages) y poner la URL.
 7. Antes de cada versión nueva, subir `versionCode` en `app/build.gradle.kts`.
@@ -56,7 +56,7 @@ Sudokus generados al momento, siempre con solución única, en cuatro niveles:
 • Difícil: técnicas como X-Wing.
 • Demencial: solo para valientes.
 
-Incluye notas a lápiz, deshacer, cronómetro con pausa, guardado automático y estadísticas por nivel.
+Incluye sudoku diario con rachas, pistas que explican el siguiente paso, logros, notas a lápiz, deshacer, cronómetro, guardado automático, estadísticas y tema claro u oscuro con varios colores.
 Sin anuncios, sin internet y sin recoger ningún dato.
 
 ## Política de privacidad
