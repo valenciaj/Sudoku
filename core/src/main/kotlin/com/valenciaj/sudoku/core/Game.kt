@@ -12,6 +12,9 @@ data class Game(
     val notes: List<Int> = List(Grid.CELLS) { 0 },
     val mistakes: Int = 0,
     val elapsedSeconds: Long = 0,
+    val hintsUsed: Int = 0,
+    /** Día (epoch day) si es el sudoku diario; null si es una partida normal. */
+    val dailyDay: Long? = null,
     val history: List<Snapshot> = emptyList(),
 ) {
     data class Snapshot(val values: List<Int>, val notes: List<Int>)
@@ -63,6 +66,18 @@ data class Game(
         return copy(values = last.values, notes = last.notes, history = history.dropLast(1))
     }
 
+    /** Pide una pista (cuenta como ayuda usada). */
+    fun hint(): Pair<Game, Hint?> {
+        val h = Hints.next(this) ?: return this to null
+        return copy(hintsUsed = hintsUsed + 1) to h
+    }
+
+    /** Escribe la solución en la casilla (no cuenta como error). */
+    fun reveal(cell: Int): Game {
+        if (isGiven(cell) || values[cell] == puzzle.solution[cell]) return this
+        return input(cell, puzzle.solution[cell])
+    }
+
     fun tick(seconds: Long = 1) = if (isSolved) this else copy(elapsedSeconds = elapsedSeconds + seconds)
 
     private fun snapshot() = Snapshot(values, notes)
@@ -77,15 +92,18 @@ data class Game(
         notes.joinToString(","),
         mistakes.toString(),
         elapsedSeconds.toString(),
+        hintsUsed.toString(),
+        (dailyDay ?: -1).toString(),
     ).joinToString("\n")
 
     companion object {
-        private const val FORMAT_VERSION = "1"
+        private const val FORMAT_VERSION = "2"
 
         /** Lee una partida guardada; null si el texto no es válido. */
         fun decode(text: String): Game? = runCatching {
             val l = text.split("\n")
-            require(l.size == 8 && l[0] == FORMAT_VERSION)
+            // Versión 1: sin pistas ni diario (8 líneas). Versión 2: 10 líneas.
+            require((l[0] == "1" && l.size == 8) || (l[0] == FORMAT_VERSION && l.size == 10))
             fun digits(s: String) = s.map { it.digitToInt() }.also { require(it.size == Grid.CELLS) }
             val puzzle = Puzzle(
                 givens = digits(l[2]).toIntArray(),
@@ -98,6 +116,8 @@ data class Game(
                 notes = l[5].split(",").map { it.toInt() }.also { require(it.size == Grid.CELLS) },
                 mistakes = l[6].toInt(),
                 elapsedSeconds = l[7].toLong(),
+                hintsUsed = l.getOrNull(8)?.toInt() ?: 0,
+                dailyDay = l.getOrNull(9)?.toLong()?.takeIf { it >= 0 },
             )
         }.getOrNull()
     }

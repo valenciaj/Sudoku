@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Cuadrícula 3x3 sencilla como icono provisional. -->
+<!-- Generado por tools/make_icons.py -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="3"
-        android:pathData="M36,36 L72,36 L72,72 L36,72 Z M48,36 L48,72 M60,36 L60,72 M36,48 L72,48 M36,60 L72,60" />
+    <path android:fillColor="#FFFFFF" android:pathData="M31.0,27.0 H77.0 Q81.0,27.0 81.0,31.0 V77.0 Q81.0,81.0 77.0,81.0 H31.0 Q27.0,81.0 27.0,77.0 V31.0 Q27.0,27.0 31.0,27.0 Z" />
+    <path android:fillColor="#FFC107" android:pathData="M33.00,33.00 h6.00 v6.00 h-6.00 Z M51.00,51.00 h6.00 v6.00 h-6.00 Z M69.00,69.00 h6.00 v6.00 h-6.00 Z M69.00,33.00 h6.00 v6.00 h-6.00 Z M33.00,69.00 h6.00 v6.00 h-6.00 Z" />
+    <path android:strokeColor="#3F51B5" android:strokeAlpha="0.45" android:strokeWidth="0.6" android:pathData="M33.00,27.0 V81.0 M27.0,33.00 H81.0 M39.00,27.0 V81.0 M27.0,39.00 H81.0 M51.00,27.0 V81.0 M27.0,51.00 H81.0 M57.00,27.0 V81.0 M27.0,57.00 H81.0 M69.00,27.0 V81.0 M27.0,69.00 H81.0 M75.00,27.0 V81.0 M27.0,75.00 H81.0" />
+    <path android:strokeColor="#3F51B5" android:strokeWidth="1.6" android:pathData="M45.00,27.0 V81.0 M27.0,45.00 H81.0 M63.00,27.0 V81.0 M27.0,63.00 H81.0" />
 </vector>
