@@ -48,12 +48,12 @@ import com.valenciaj.sudoku.core.Stats
 fun AchievementsScreen(stats: Stats, onBack: () -> Unit) {
     val unlocked = Achievement.entries.count { it.isUnlocked(stats) }
     Column(
-        Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState()),
+        Modifier.widthIn(max = 960.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         ScreenHeader(stringResource(R.string.achievements), onBack)
         Text(stringResource(R.string.achievements_count, unlocked, Achievement.entries.size), style = MaterialTheme.typography.titleMedium)
-        Achievement.entries.forEach { a ->
+        AdaptiveList(Achievement.entries) { a ->
             val done = a.isUnlocked(stats)
             Card(
                 Modifier.fillMaxWidth().alpha(if (done) 1f else 0.5f),

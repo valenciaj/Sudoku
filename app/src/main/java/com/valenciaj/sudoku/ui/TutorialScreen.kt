@@ -83,7 +83,7 @@ fun Technique.description(): String = stringResource(
 fun TutorialScreen(state: TutorialState, actions: TutorialActions, onBack: () -> Unit) {
     val technique = state.technique
     Column(
-        Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState()),
+        Modifier.widthIn(max = 600.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (technique == null) {

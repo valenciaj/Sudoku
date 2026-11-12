@@ -38,7 +38,7 @@ Cada build deja el `.aab` firmado en el artefacto `sudoku-release-aab`.
 1. Cuenta de desarrollador (pago único de 25 $).
 2. Crear app → nombre "Sudoku", idioma español, gratuita.
 3. Activar **Play App Signing** y subir el `.aab` a "Prueba interna".
-4. Rellenar la ficha (textos abajo). Gráficos listos en `play/`: icono 512x512 y gráfico destacado 1024x500 (se regeneran con `python3 tools/make_icons.py`). Capturas: artefacto `sudoku-screenshots` de GitHub Actions (o `./gradlew :app:recordPaparazziDebug`).
+4. Rellenar la ficha (textos abajo). Gráficos listos en `play/`: icono 512x512 y gráfico destacado 1024x500 (se regeneran con `python3 tools/make_icons.py`). Capturas: artefacto `sudoku-screenshots` de GitHub Actions (o `./gradlew :app:recordPaparazziDebug`). Incluye móvil, tablet de 7" (`Tablet7ScreenshotTest`) y de 10" (`TabletScreenshotTest`).
 5. Cuestionarios: clasificación de contenido (apta para todos), "Seguridad de los datos" (la app no recoge datos; la copia opcional va a la cuenta de GitHub del usuario), público objetivo.
 6. Política de privacidad: publicar el texto de abajo (por ejemplo con GitHub Pages) y poner la URL.
 7. Antes de cada versión nueva, subir `versionCode` en `app/build.gradle.kts`.
