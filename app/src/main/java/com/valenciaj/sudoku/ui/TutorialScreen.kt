@@ -1,6 +1,8 @@
 package com.valenciaj.sudoku.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,21 +92,24 @@ fun TutorialScreen(state: TutorialState, actions: TutorialActions, onBack: () ->
             ScreenHeader(stringResource(R.string.tutorial), onBack)
             Text(stringResource(R.string.tutorial_intro), style = MaterialTheme.typography.bodyMedium)
             Tutorial.lessons.forEach { t ->
-                Card(onClick = { actions.openLesson(t) }, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                androidx.compose.material3.Surface(
+                    onClick = { actions.openLesson(t) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                ) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(t.title(), Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                            Text(t.level.text(), style = MaterialTheme.typography.labelMedium)
+                            Text(t.title(), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                            LevelDots(t.level.ordinal + 1)
                         }
-                        Text(t.description(), style = MaterialTheme.typography.bodyMedium)
+                        Text(t.level.text(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(t.description(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         } else {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { actions.openLesson(null) }) { Text(stringResource(R.string.back)) }
-                Text(technique.title(), style = MaterialTheme.typography.titleLarge)
-            }
+            ScreenHeader(technique.title()) { actions.openLesson(null) }
             Text(technique.description(), style = MaterialTheme.typography.bodyMedium)
             val example = state.example
             when {
@@ -160,7 +165,13 @@ private fun Lesson(example: Example, state: TutorialState, actions: TutorialActi
 private fun TutorialBoard(example: Example, showEliminations: Boolean, solved: Boolean) {
     val colors = MaterialTheme.colorScheme
     val target = example.placement?.first
-    Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+    Box(
+        Modifier.fillMaxWidth().aspectRatio(1f)
+            .clip(shape)
+            .background(colors.surfaceContainerLowest)
+            .border(2.dp, colors.onSurface.copy(alpha = 0.85f), shape),
+    ) {
         Column(Modifier.fillMaxSize()) {
             for (r in 0 until 9) {
                 Row(Modifier.weight(1f)) {
@@ -170,14 +181,14 @@ private fun TutorialBoard(example: Example, showEliminations: Boolean, solved: B
                         val background = when {
                             cell == target -> colors.primaryContainer
                             cell in example.pattern -> colors.tertiaryContainer
-                            else -> colors.surface
+                            else -> colors.surfaceContainerLowest
                         }
                         Box(
                             Modifier.weight(1f).fillMaxSize().background(background),
                             contentAlignment = Alignment.Center,
                         ) {
                             when {
-                                value != 0 -> Text(value.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                value != 0 -> Text(value.toString(), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                                 cell == target && solved -> Text(
                                     example.placement!!.second.toString(),
                                     fontSize = 20.sp,
@@ -203,7 +214,7 @@ private fun TutorialBoard(example: Example, showEliminations: Boolean, solved: B
                 }
             }
         }
-        GridLines(colors.outline, colors.onSurface)
+        GridLines(colors.outlineVariant, colors.onSurface.copy(alpha = 0.85f), outer = false)
     }
 }
 

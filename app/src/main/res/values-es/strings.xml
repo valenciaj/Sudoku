@@ -155,4 +155,11 @@
     <string name="cell_wrong">%1$d, incorrecto</string>
     <string name="cell_cage">%1$s, jaula de suma %2$d</string>
     <string name="cell_select">seleccionar</string>
+    <string name="continue_title">Continuar</string>
+    <string name="play">Jugar</string>
+    <string name="back_cd">Volver</string>
+    <string name="streak_label">Racha</string>
+    <string name="pause_cd">Pausar</string>
+    <string name="resume_cd">Seguir</string>
+    <string name="choose_level">Elige tu nivel</string>
 </resources>
